@@ -12,11 +12,6 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-type ChatMessagesCmd struct {
-	List ChatMessagesListCmd `cmd:"" name:"list" aliases:"ls" help:"List messages"`
-	Send ChatMessagesSendCmd `cmd:"" name:"send" aliases:"create,post" help:"Send a message"`
-}
-
 type ChatMessagesListCmd struct {
 	Space     string `arg:"" name:"space" help:"Space name (spaces/...)"`
 	Max       int64  `name:"max" aliases:"limit" help:"Max results" default:"50"`

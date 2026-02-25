@@ -18,11 +18,6 @@ const (
 	directoryRequestTimeout = 20 * time.Second
 )
 
-type ContactsDirectoryCmd struct {
-	List   ContactsDirectoryListCmd   `cmd:"" name:"list" help:"List people from the Workspace directory"`
-	Search ContactsDirectorySearchCmd `cmd:"" name:"search" help:"Search people in the Workspace directory"`
-}
-
 type ContactsDirectoryListCmd struct {
 	Max       int64  `name:"max" aliases:"limit" help:"Max results" default:"50"`
 	Page      string `name:"page" aliases:"cursor" help:"Page token"`
@@ -233,12 +228,6 @@ func (c *ContactsDirectorySearchCmd) Run(ctx context.Context, flags *RootFlags) 
 	}
 	printNextPageHint(u, nextPageToken)
 	return nil
-}
-
-type ContactsOtherCmd struct {
-	List   ContactsOtherListCmd   `cmd:"" name:"list" help:"List other contacts"`
-	Search ContactsOtherSearchCmd `cmd:"" name:"search" help:"Search other contacts"`
-	Delete ContactsOtherDeleteCmd `cmd:"" name:"delete" help:"Delete an other contact"`
 }
 
 type ContactsOtherListCmd struct {

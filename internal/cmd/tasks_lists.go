@@ -12,11 +12,6 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-type TasksListsCmd struct {
-	List   TasksListsListCmd   `cmd:"" default:"withargs" help:"List task lists"`
-	Create TasksListsCreateCmd `cmd:"" name:"create" help:"Create a task list" aliases:"add,new"`
-}
-
 type TasksListsListCmd struct {
 	Max       int64  `name:"max" aliases:"limit" help:"Max results (max allowed: 1000)" default:"100"`
 	Page      string `name:"page" aliases:"cursor" help:"Page token"`

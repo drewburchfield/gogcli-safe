@@ -12,11 +12,6 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-type ChatDMCmd struct {
-	Send  ChatDMSendCmd  `cmd:"" name:"send" aliases:"create,post" help:"Send a direct message"`
-	Space ChatDMSpaceCmd `cmd:"" name:"space" aliases:"find,setup" help:"Find or create a DM space"`
-}
-
 type ChatDMSendCmd struct {
 	Email  string `arg:"" name:"email" help:"Recipient email"`
 	Text   string `name:"text" help:"Message text (required)"`

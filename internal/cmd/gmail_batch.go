@@ -11,11 +11,6 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-type GmailBatchCmd struct {
-	Delete GmailBatchDeleteCmd `cmd:"" name:"delete" aliases:"rm,del,remove" help:"Permanently delete multiple messages"`
-	Modify GmailBatchModifyCmd `cmd:"" name:"modify" aliases:"update,edit,set" help:"Modify labels on multiple messages"`
-}
-
 type GmailBatchDeleteCmd struct {
 	MessageIDs []string `arg:"" name:"messageId" help:"Message IDs"`
 }
