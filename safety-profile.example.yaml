@@ -273,7 +273,7 @@ auth:
     status: true           # [safe]
   keep: true               # [medium]
 
-# Utility commands (always included)
+# Utility commands (these keys are recognized but these commands are
+# always included in the binary regardless of their value here).
 config: true               # [safe]
 time: true                 # [safe]
-open: true                 # [safe]

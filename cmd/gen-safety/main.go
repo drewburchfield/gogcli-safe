@@ -8,6 +8,7 @@
 //
 //	go run ./cmd/gen-safety [profile.yaml]
 //	go run ./cmd/gen-safety safety-profiles/readonly.yaml
+//	go run ./cmd/gen-safety --strict safety-profiles/agent-safe.yaml
 package main
 
 import (
@@ -29,7 +30,7 @@ type field struct {
 	YAMLKey string // key in safety-profile.yaml
 }
 
-// serviceSpec defines a top-level service and how to generate its parent struct.
+// serviceSpec defines a service or nested parent command and how to generate its struct.
 type serviceSpec struct {
 	YAMLKey      string  // key in safety-profile.yaml
 	StructName   string  // Go struct name (e.g. "GmailCmd")
@@ -217,7 +218,11 @@ func buildEmptyStruct(spec serviceSpec) string {
 		buf.WriteString(spec.ExtraCode)
 		buf.WriteString("\n\n")
 	}
-	fmt.Fprintf(&buf, "type %s struct{}\n", spec.StructName)
+	if spec.NonCmdPrefix != "" {
+		fmt.Fprintf(&buf, "type %s struct {\n%s}\n", spec.StructName, spec.NonCmdPrefix)
+	} else {
+		fmt.Fprintf(&buf, "type %s struct{}\n", spec.StructName)
+	}
 	return buf.String()
 }
 
@@ -293,7 +298,7 @@ func isEnabled(config map[string]any, key string) bool {
 // mapHasEnabledLeaf recursively checks whether a nested map contains
 // at least one boolean leaf set to true.
 func mapHasEnabledLeaf(m map[string]any) bool {
-	for _, v := range m {
+	for k, v := range m {
 		switch val := v.(type) {
 		case bool:
 			if val {
@@ -303,6 +308,8 @@ func mapHasEnabledLeaf(m map[string]any) bool {
 			if mapHasEnabledLeaf(val) {
 				return true
 			}
+		default:
+			fatal("invalid value for key %q: got %T (%v), expected bool or map", k, v, v)
 		}
 	}
 	return false
@@ -316,7 +323,7 @@ func buildKnownKeys(specs []serviceSpec, aliases []field) map[string]bool {
 	// Utility commands (always included, YAML keys ignored but tolerated)
 	known["config"] = true
 	known["time"] = true
-	known["open"] = true
+	// "open" is an alias (leaf command), controlled via aliases.open
 	for _, spec := range specs {
 		addSpecKeys(known, spec.YAMLKey, spec.Fields)
 	}
@@ -391,6 +398,7 @@ func isServiceDisabled(config map[string]any, key string) bool {
 		if m, ok := v.(map[string]any); ok {
 			current = m
 		} else {
+			warn("unexpected type %T at key %q in profile, treating as disabled", v, part)
 			return true // unexpected type = disabled (fail-closed)
 		}
 	}

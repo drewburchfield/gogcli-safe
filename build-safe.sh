@@ -66,7 +66,7 @@ echo "Generating command structs from profile..."
 go run ./cmd/gen-safety "$PROFILE"
 
 # Step 3: Build with the safety_profile tag
-VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev-safe")
+VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT=$(git rev-parse --short=12 HEAD 2>/dev/null || echo "")
 DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 LDFLAGS="-X github.com/steipete/gogcli/internal/cmd.version=${VERSION}-safe -X github.com/steipete/gogcli/internal/cmd.commit=${COMMIT} -X github.com/steipete/gogcli/internal/cmd.date=${DATE}"
@@ -79,7 +79,7 @@ go build -tags safety_profile -ldflags "$LDFLAGS" -o "$OUTPUT" ./cmd/gog/
 echo ""
 echo "Built: $OUTPUT"
 echo "Profile: $PROFILE"
-if ! "$OUTPUT" --version 2>&1; then
+if ! "$OUTPUT" --version; then
   echo "WARNING: built binary failed to run --version" >&2
   exit 1
 fi

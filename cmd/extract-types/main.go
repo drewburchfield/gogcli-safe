@@ -27,8 +27,6 @@ type extraction struct {
 	ExtraCode   string   // extra code that must move with the struct (e.g., var declarations)
 }
 
-var structPattern = regexp.MustCompile(`^type\s+(\w+)\s+struct\s*\{`)
-
 func main() {
 	baseDir := "internal/cmd"
 

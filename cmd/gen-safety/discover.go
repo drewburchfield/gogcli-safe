@@ -134,8 +134,8 @@ func extractExtraCode(file *ast.File, fset *token.FileSet, src []byte) string {
 }
 
 // parseTypesFiles parses all *_types.go files in dir and returns a map
-// from struct name to parsed struct info. Only files with Cmd struct types
-// (ending in "Cmd") are included.
+// from struct name to parsed struct info. Only structs named "CLI" or
+// ending in "Cmd" are included.
 func parseTypesFiles(dir string) (map[string]*parsedStruct, error) {
 	pattern := filepath.Join(dir, "*_types.go")
 	files, err := filepath.Glob(pattern)
