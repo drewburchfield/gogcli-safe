@@ -12,12 +12,6 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-type ChatSpacesCmd struct {
-	List   ChatSpacesListCmd   `cmd:"" name:"list" aliases:"ls" help:"List spaces"`
-	Find   ChatSpacesFindCmd   `cmd:"" name:"find" aliases:"search,query" help:"Find spaces by display name"`
-	Create ChatSpacesCreateCmd `cmd:"" name:"create" aliases:"add,new" help:"Create a space"`
-}
-
 type ChatSpacesListCmd struct {
 	Max       int64  `name:"max" aliases:"limit" help:"Max results" default:"100"`
 	Page      string `name:"page" aliases:"cursor" help:"Page token"`

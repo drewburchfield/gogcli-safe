@@ -26,6 +26,7 @@ Fast, script-friendly CLI for Gmail, Calendar, Chat, Classroom, Drive, Docs, Sli
 - **Local time** - quick local/UTC time display for scripts and agents
 - **Multiple accounts** - manage multiple Google accounts simultaneously, with account aliases and per-client OAuth buckets
 - **Command allowlist** - restrict top-level commands for sandboxed/agent runs
+- **Safety profiles** - compile-time command removal via YAML config (non-bypassable, ideal for AI agents)
 - **Secure credential storage** using OS keyring or encrypted on-disk keyring (configurable)
 - **Auto-refreshing tokens** - authenticate once, use indefinitely
 - **Flexible auth** - OAuth refresh tokens, ADC, direct access tokens, service accounts, manual/remote flows, `--extra-scopes`, and proxy-safe callbacks
@@ -52,6 +53,13 @@ yay -S gogcli
 git clone https://github.com/steipete/gogcli.git
 cd gogcli
 make
+```
+
+Build a safety-profiled binary (see [Safety Profiles](#safety-profiles-compile-time)):
+
+```bash
+make build-safe              # uses ./safety-profile.example.yaml
+make build-safe PROFILE=safety-profiles/readonly.yaml
 ```
 
 Run:
@@ -545,7 +553,91 @@ gog tasks list <tasklistId>
 gog --gmail-no-send gmail send --to someone@example.com --subject Test --body Test
 gog config no-send set agent@example.com
 ```
- 
+
+### Safety Profiles (Compile-Time)
+
+`--enable-commands` is a runtime flag, which means an AI agent can bypass it by passing `--enable-commands=""`. Safety profiles solve this by removing commands from the binary at compile time. If `gmail send` is not in the binary, no prompt injection or flag override can invoke it.
+
+A safety profile is a YAML file that maps every command to `true` (include) or `false` (omit):
+
+```yaml
+gmail:
+  search: true
+  get: true
+  send: false          # removed from the binary
+  drafts:
+    list: true
+    create: true
+    send: false        # can draft but not send
+  settings: false      # all settings subcommands removed
+
+calendar:
+  events: true
+  create: true
+  delete: false
+
+drive:
+  ls: true
+  search: true
+  upload: false
+  delete: false
+
+classroom: false       # entire service removed
+```
+
+Build a profiled binary with `make build-safe`:
+
+```bash
+# Use the example profile
+make build-safe
+
+# Use a preset profile
+make build-safe PROFILE=safety-profiles/readonly.yaml
+
+# Custom output path
+./build-safe.sh safety-profiles/agent-safe.yaml -o /usr/local/bin/gog-safe
+```
+
+The generator parses the `*_types.go` source files via Go's AST package to auto-discover all commands and their hierarchy. It then reads the YAML profile and generates Go source files containing only the enabled command fields, compiled with `-tags safety_profile` so the generated structs replace the full ones. New upstream commands are picked up automatically with no manual registry to maintain. The resulting binary is identical to stock `gog` for the commands it includes; disabled commands simply do not exist.
+
+**Preset profiles** are provided in `safety-profiles/`:
+
+| Profile | Description |
+|---------|-------------|
+| `full.yaml` | Everything enabled (equivalent to stock `gog`) |
+| `readonly.yaml` | Read/list/search/get only, no creates, updates, sends, or deletes |
+| `agent-safe.yaml` | Read + draft + archive + label, no send/delete/settings |
+
+To create a custom profile, copy `safety-profiles/full.yaml` and set commands to `false` as needed. Setting a service key to `false` (e.g., `classroom: false`) disables all of its subcommands.
+
+#### Why compile-time instead of runtime?
+
+Runtime restrictions (`--enable-commands`, environment variables, config flags) are useful for preventing accidental misuse, but an AI agent with shell access can bypass them:
+
+```bash
+# Agent can clear the runtime allowlist
+gog --enable-commands="" gmail send ...
+
+# Agent can unset the env var
+unset GOG_ENABLE_COMMANDS && gog gmail send ...
+```
+
+Most agent frameworks (Claude Code, OpenClaw, Cursor, etc.) do not inspect the content of individual shell commands at the policy level, and those that support it (like Claude Code's PreToolUse hooks) rely on pattern matching that can be circumvented with creative quoting or indirection. They can allow or deny the shell/exec tool entirely, but reliably blocking specific subcommands within an allowed tool is brittle. This means that if an agent has shell access at all, runtime flags are the only thing standing between it and destructive commands, and those flags are bypassable.
+
+Compile-time removal closes this gap. The binary physically lacks the command. There is no sequence of arguments, environment variables, or config changes that can invoke it.
+
+This is especially relevant for Gmail's draft-without-send use case: Google's OAuth scopes have no `gmail.drafts` scope. `gmail.readonly` blocks all writes including drafts; `gmail.compose` allows drafts AND sending. The only way to allow `gog gmail drafts create` while blocking `gog gmail send` is to remove `send` from the binary.
+
+#### Config isolation
+
+Safety profile builds automatically use a separate config directory (`gogcli-safe/` instead of `gogcli/`), so credentials are not shared between stock `gog` and a profiled binary. This means an agent cannot bypass command removal by calling the stock `gog` binary with the same account's tokens.
+
+- macOS: `~/Library/Application Support/gogcli-safe/`
+- Linux: `~/.config/gogcli-safe/` (or `$XDG_CONFIG_HOME/gogcli-safe/`)
+- Windows: `%AppData%\\gogcli-safe\\`
+
+Authenticate each binary independently. The two binaries can run side-by-side on the same machine with different accounts and different permission levels.
+
 ## Security
 
 ### Credential Storage

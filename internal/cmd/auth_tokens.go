@@ -17,13 +17,6 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-type AuthTokensCmd struct {
-	List   AuthTokensListCmd   `cmd:"" name:"list" help:"List stored tokens (by key only)"`
-	Delete AuthTokensDeleteCmd `cmd:"" name:"delete" help:"Delete a stored refresh token"`
-	Export AuthTokensExportCmd `cmd:"" name:"export" help:"Export a refresh token to a file (contains secrets)"`
-	Import AuthTokensImportCmd `cmd:"" name:"import" help:"Import a refresh token file into keyring (contains secrets)"`
-}
-
 type AuthTokensListCmd struct{}
 
 func (c *AuthTokensListCmd) Run(ctx context.Context, _ *RootFlags) error {
