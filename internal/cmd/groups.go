@@ -23,11 +23,6 @@ const (
 	groupRoleMember  = "MEMBER"
 )
 
-type GroupsCmd struct {
-	List    GroupsListCmd    `cmd:"" name:"list" aliases:"ls" help:"List groups you belong to"`
-	Members GroupsMembersCmd `cmd:"" name:"members" help:"List members of a group"`
-}
-
 type GroupsListCmd struct {
 	Max       int64  `name:"max" aliases:"limit" help:"Max results" default:"100"`
 	Page      string `name:"page" aliases:"cursor" help:"Page token"`
