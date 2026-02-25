@@ -7,21 +7,24 @@
 # The resulting binary version is tagged with "-safe" suffix.
 #
 # Usage:
-#   ./build-safe.sh                                   # Uses ./safety-profile.yaml
-#   ./build-safe.sh safety-profiles/readonly.yaml      # Uses a preset
+#   ./build-safe.sh safety-profile.example.yaml          # Uses the example profile
+#   ./build-safe.sh safety-profiles/readonly.yaml        # Uses a preset
 #   ./build-safe.sh safety-profiles/agent-safe.yaml -o /usr/local/bin/gog-safe
 #
 set -euo pipefail
 
-PROFILE="${1:-safety-profile.yaml}"
-shift 2>/dev/null || true
-
-# Catch flags passed without a profile path
-if [[ "$PROFILE" == -* ]]; then
-  echo "Error: first argument must be a profile YAML path, got flag: $PROFILE" >&2
-  echo "Usage: $0 [profile.yaml] [-o output]" >&2
+if [[ -z "${1:-}" ]] || [[ "$1" == -* ]]; then
+  echo "Usage: $0 <profile.yaml> [-o output]" >&2
+  echo "" >&2
+  echo "Examples:" >&2
+  echo "  $0 safety-profile.example.yaml" >&2
+  echo "  $0 safety-profiles/readonly.yaml" >&2
+  echo "  $0 safety-profiles/agent-safe.yaml -o /usr/local/bin/gog-safe" >&2
   exit 1
 fi
+
+PROFILE="$1"
+shift
 
 # Parse optional flags
 OUTPUT=""

@@ -56,7 +56,7 @@ make
 Build a safety-profiled binary (see [Safety Profiles](#safety-profiles-compile-time)):
 
 ```bash
-make build-safe              # uses ./safety-profile.yaml
+make build-safe              # uses ./safety-profile.example.yaml
 make build-safe PROFILE=safety-profiles/readonly.yaml
 ```
 
@@ -526,7 +526,7 @@ classroom: false       # entire service removed
 Build a profiled binary with `make build-safe`:
 
 ```bash
-# Use the repo-root safety-profile.yaml (default)
+# Use the example profile
 make build-safe
 
 # Use a preset profile
@@ -536,7 +536,7 @@ make build-safe PROFILE=safety-profiles/readonly.yaml
 ./build-safe.sh safety-profiles/agent-safe.yaml -o /usr/local/bin/gog-safe
 ```
 
-The build reads the YAML, generates Go source files containing only the enabled command fields, and compiles with `-tags safety_profile` so the generated structs replace the full ones. The resulting binary is identical to stock `gog` for the commands it includes; disabled commands simply do not exist.
+The generator parses the `*_types.go` source files via Go's AST package to auto-discover all commands and their hierarchy. It then reads the YAML profile and generates Go source files containing only the enabled command fields, compiled with `-tags safety_profile` so the generated structs replace the full ones. New upstream commands are picked up automatically with no manual registry to maintain. The resulting binary is identical to stock `gog` for the commands it includes; disabled commands simply do not exist.
 
 **Preset profiles** are provided in `safety-profiles/`:
 

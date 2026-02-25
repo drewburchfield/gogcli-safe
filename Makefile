@@ -88,7 +88,7 @@ test:
 
 # Safety profile builds
 SAFE_BIN := $(BIN_DIR)/gog-safe
-PROFILE ?= safety-profile.yaml
+PROFILE ?= safety-profile.example.yaml
 
 build-safe:
 	@./build-safe.sh $(PROFILE)
