@@ -12,12 +12,6 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-type AuthAliasCmd struct {
-	List  AuthAliasListCmd  `cmd:"" name:"list" help:"List account aliases"`
-	Set   AuthAliasSetCmd   `cmd:"" name:"set" help:"Set an account alias"`
-	Unset AuthAliasUnsetCmd `cmd:"" name:"unset" help:"Remove an account alias"`
-}
-
 type AuthAliasListCmd struct{}
 
 func (c *AuthAliasListCmd) Run(ctx context.Context) error {

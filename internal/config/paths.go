@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-const AppName = "gogcli"
 
 func Dir() (string, error) {
 	base, err := os.UserConfigDir()
