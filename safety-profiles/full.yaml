@@ -126,6 +126,10 @@ docs:
   delete: true
   find-replace: true
   update: true
+  edit: true
+  sed: true
+  clear: true
+  structure: true
   comments:
     list: true
     get: true

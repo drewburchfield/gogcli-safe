@@ -63,7 +63,7 @@ rm -f internal/cmd/*_cmd_gen.go
 
 # Step 2: Generate Go files from the safety profile
 echo "Generating command structs from profile..."
-go run ./cmd/gen-safety "$PROFILE"
+go run ./cmd/gen-safety --strict "$PROFILE"
 
 # Step 3: Build with the safety_profile tag
 VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo "dev")
