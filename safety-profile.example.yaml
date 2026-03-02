@@ -153,6 +153,10 @@ docs:
   delete: false            # [medium]
   find-replace: false      # [medium]
   update: false            # [medium]
+  edit: false              # [medium]
+  sed: false               # [medium]
+  clear: false             # [medium]
+  structure: true          # [safe]
   comments:
     list: true             # [safe]
     get: true              # [safe]
