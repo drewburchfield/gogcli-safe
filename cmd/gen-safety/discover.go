@@ -29,7 +29,11 @@ type parsedField struct {
 }
 
 // utilityTypes is the set of CLI field types that are always included
-// (no YAML key, no filtering).
+// in safety-profiled builds (no YAML key, no filtering).
+//
+// Keep in sync with utility commands in internal/cmd/root_types.go.
+// If a new utility command type is added to CLI, add it here so it
+// is always included regardless of the safety profile.
 var utilityTypes = map[string]bool{
 	"TimeCmd":               true,
 	"ConfigCmd":             true,
