@@ -1,7 +1,36 @@
-# 🧭 gogcli — Google in your terminal.
+# gogcli-safe — Google in your terminal, with guardrails.
 
-![GitHub Repo Banner](https://ghrb.waren.build/banner?header=gogcli%F0%9F%A7%AD&subheader=Google+in+your+terminal&bg=f3f4f6&color=1f2937&support=true)
-<!-- Created with GitHub Repo Banner by Waren Gonzaga: https://ghrb.waren.build -->
+![GitHub Repo Banner](https://ghrb.waren.build/banner?header=gogcli-safe%F0%9F%94%92&subheader=Google+in+your+terminal,+with+guardrails&bg=f3f4f6&color=1f2937&support=true)
+
+> **Fork of [steipete/gogcli](https://github.com/steipete/gogcli) with compile-time safety profiles.**
+> Build `gog` binaries with dangerous commands physically removed. Disabled commands don't exist in the binary, don't appear in `--help`, and can't be invoked regardless of flags, environment variables, or config changes. Ideal for giving AI agents access to Google Workspace without risking destructive actions.
+
+### Why this fork?
+
+The upstream `gog` CLI has 170+ commands across 17 Google services. That's powerful, but if you're handing shell access to an AI agent, you probably don't want it to be able to `gog gmail send` or `gog drive delete`. OAuth scopes can't solve this granularly (there's no `gmail.drafts` scope), and runtime flags like `--enable-commands` are bypassable by any agent with shell access.
+
+This fork adds a YAML-driven build system that generates trimmed binaries at compile time. You define what's allowed, build once, and the resulting binary physically cannot do anything else.
+
+```yaml
+# safety-profile.yaml
+gmail:
+  search: true       # allowed
+  send: false        # physically absent from binary
+  drafts:
+    create: true     # can draft
+    send: false      # can't send drafts
+classroom: false     # entire service removed
+```
+
+```bash
+./build-safe.sh safety-profiles/agent-safe.yaml -o /usr/local/bin/gog-safe
+```
+
+Three presets are included: `full.yaml` (everything), `readonly.yaml` (no writes/deletes), and `agent-safe.yaml` (read + draft + task management, no send/delete/share). Or write your own.
+
+See the [Safety Profiles](#safety-profiles-compile-time) section below for full details, or the [upstream PR](https://github.com/steipete/gogcli/pull/366) for design rationale.
+
+---
 
 Fast, script-friendly CLI for Gmail, Calendar, Chat, Classroom, Drive, Docs, Slides, Sheets, Forms, Apps Script, Contacts, Tasks, People, Admin, Groups (Workspace), and Keep (Workspace-only). JSON-first output, multiple accounts, and flexible auth built in.
 
