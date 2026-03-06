@@ -1,8 +1,14 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestIsEnabled(t *testing.T) {
+	warnings = nil
+	defer func() { warnings = nil }()
+
 	config := map[string]any{
 		"send":   true,
 		"delete": false,
@@ -40,6 +46,9 @@ func TestIsEnabled(t *testing.T) {
 }
 
 func TestFilterFields(t *testing.T) {
+	warnings = nil
+	defer func() { warnings = nil }()
+
 	fields := []field{
 		{GoName: "Send", YAMLKey: "send"},
 		{GoName: "Search", YAMLKey: "search"},
@@ -115,6 +124,82 @@ func TestResolveEnabledFields_NestedBoolShorthand(t *testing.T) {
 	got := resolveEnabledFields(fields, nil, profile, "gmail.settings")
 	if len(got) != len(fields) {
 		t.Errorf("gmail: true should enable all gmail.settings fields, got %d of %d", len(got), len(fields))
+	}
+}
+
+func TestValidateYAMLKeys(t *testing.T) {
+	warnings = nil
+	defer func() { warnings = nil }()
+
+	known := map[string]bool{
+		"gmail":        true,
+		"gmail.send":   true,
+		"gmail.search": true,
+		"aliases":      true,
+		"aliases.ls":   true,
+	}
+
+	profile := map[string]any{
+		"gmail": map[string]any{
+			"send":   true,
+			"search": true,
+			"typo":   true, // unrecognized
+		},
+		"bogus": true, // unrecognized top-level
+	}
+
+	validateYAMLKeys(profile, known, "")
+
+	if len(warnings) != 2 {
+		t.Errorf("expected 2 warnings, got %d: %v", len(warnings), warnings)
+	}
+
+	var foundTypo, foundBogus bool
+	for _, w := range warnings {
+		if strings.Contains(w, "gmail.typo") {
+			foundTypo = true
+		}
+		if strings.Contains(w, "bogus") {
+			foundBogus = true
+		}
+	}
+	if !foundTypo {
+		t.Error("expected warning about gmail.typo")
+	}
+	if !foundBogus {
+		t.Error("expected warning about bogus")
+	}
+
+}
+
+func TestBuildEmptyStruct(t *testing.T) {
+	spec := serviceSpec{
+		StructName: "ClassroomCmd",
+		File:       "classroom_cmd_gen.go",
+	}
+
+	got := buildEmptyStruct(spec)
+	if !strings.Contains(got, "type ClassroomCmd struct{}") {
+		t.Errorf("expected empty struct, got:\n%s", got)
+	}
+	if !strings.Contains(got, "//go:build safety_profile") {
+		t.Error("expected safety_profile build tag")
+	}
+}
+
+func TestBuildEmptyStructWithNonCmdPrefix(t *testing.T) {
+	spec := serviceSpec{
+		StructName:   "KeepCmd",
+		File:         "keep_cmd_gen.go",
+		NonCmdPrefix: "\tServiceAccount string `help:\"SA email\"`\n",
+	}
+
+	got := buildEmptyStruct(spec)
+	if !strings.Contains(got, "type KeepCmd struct") {
+		t.Errorf("expected KeepCmd struct, got:\n%s", got)
+	}
+	if !strings.Contains(got, "ServiceAccount") {
+		t.Error("expected NonCmdPrefix fields preserved in empty struct")
 	}
 }
 
