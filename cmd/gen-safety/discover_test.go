@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -338,5 +339,46 @@ func TestClassroomFieldsNoNameTag(t *testing.T) {
 	}
 	if !found {
 		t.Error("Courses field not found in classroom spec")
+	}
+}
+
+// TestEndToEndSafeBuild runs the full pipeline: generate from a profile
+// and compile with -tags safety_profile. This catches regressions where
+// generated code does not compile. Tests both full.yaml (all enabled) and
+// readonly.yaml (most disabled) to exercise both code paths.
+func TestEndToEndSafeBuild(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping end-to-end build test in short mode")
+	}
+
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatalf("resolving repo root: %v", err)
+	}
+
+	profiles := []string{"full.yaml", "readonly.yaml"}
+	for _, profile := range profiles {
+		t.Run(profile, func(t *testing.T) {
+			profilePath := filepath.Join(repoRoot, "safety-profiles", profile)
+			if _, err := os.Stat(profilePath); err != nil {
+				t.Skipf("%s not found: %v", profile, err)
+			}
+
+			// Step 1: Run the generator with --strict.
+			gen := exec.Command("go", "run", "./cmd/gen-safety", "--strict", profilePath)
+			gen.Dir = repoRoot
+			out, err := gen.CombinedOutput()
+			if err != nil {
+				t.Fatalf("gen-safety --strict %s failed:\n%s\n%v", profile, out, err)
+			}
+
+			// Step 2: Build with -tags safety_profile.
+			build := exec.Command("go", "build", "-tags", "safety_profile", "./cmd/gog/")
+			build.Dir = repoRoot
+			out, err = build.CombinedOutput()
+			if err != nil {
+				t.Fatalf("go build -tags safety_profile (%s) failed:\n%s\n%v", profile, out, err)
+			}
+		})
 	}
 }
