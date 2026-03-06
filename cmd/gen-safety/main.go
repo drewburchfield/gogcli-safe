@@ -56,7 +56,9 @@ func main() {
 	for _, arg := range os.Args[1:] {
 		if arg == "--strict" {
 			strict = true
-		} else if !strings.HasPrefix(arg, "-") {
+		} else if strings.HasPrefix(arg, "-") {
+			fatal("unknown flag: %s", arg)
+		} else {
 			profilePath = arg
 		}
 	}
@@ -90,7 +92,7 @@ func main() {
 	aliases, services := buildCLIFields(structs)
 
 	// Validate YAML keys against known specs to catch typos.
-	knownKeys := buildKnownKeys(specs, aliases)
+	knownKeys := buildKnownKeys(specs, aliases, services)
 	validateYAMLKeys(profile, knownKeys, "")
 
 	for _, spec := range specs {
@@ -328,14 +330,21 @@ func mapHasEnabledLeaf(m map[string]any) bool {
 }
 
 // buildKnownKeys constructs a set of all valid YAML key paths from the specs.
-func buildKnownKeys(specs []serviceSpec, aliases []field) map[string]bool {
+// The services list is used to derive tolerated YAML keys for utility commands
+// (those with empty YAMLKey), keeping this in sync with the utilityTypes map
+// in discover.go automatically.
+func buildKnownKeys(specs []serviceSpec, aliases []field, services []field) map[string]bool {
 	known := make(map[string]bool)
 	// Top-level sections recognized by the generator
 	known["aliases"] = true
-	// Utility commands (always included, YAML keys ignored but tolerated)
-	known["config"] = true
-	known["time"] = true
-	// "open" is an alias (leaf command), controlled via aliases.open
+	// Utility commands: always included, YAML keys tolerated but ignored.
+	// Derived from utilityTypes via buildCLIFields (empty YAMLKey = utility).
+	for _, f := range services {
+		if f.YAMLKey == "" {
+			key := yamlKeyFromTag(f.Tag, f.GoName)
+			known[key] = true
+		}
+	}
 	for _, spec := range specs {
 		addSpecKeys(known, spec.YAMLKey, spec.Fields)
 	}
