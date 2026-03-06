@@ -44,6 +44,11 @@ gmail:
     modify: true           # [low] Bulk label changes for triage
     delete: false          # [critical] Permanently delete multiple messages
 
+  archive: true            # [low] Archive messages (remove from inbox)
+  mark-read: true          # [low] Mark messages as read
+  unread: true             # [low] Mark messages as unread
+  trash: false             # [critical] Move messages to trash
+
   # Write commands
   send: false              # [high] Send email
   track: false             # [medium] Email open tracking
@@ -169,6 +174,7 @@ sheets:
   get: true                # [safe]
   metadata: true           # [safe]
   notes: true              # [safe]
+  links: true              # [safe]
   export: true             # [safe]
   update: false            # [medium]
   append: false            # [medium]

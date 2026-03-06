@@ -25,6 +25,10 @@ gmail:
   batch:
     modify: true             # Bulk label changes for triage
     delete: false
+  archive: true
+  mark-read: true
+  unread: true
+  trash: false
   send: false
   track: false
   drafts:
@@ -144,6 +148,7 @@ sheets:
   get: true
   metadata: true
   notes: true
+  links: true
   export: true
   update: false
   append: false

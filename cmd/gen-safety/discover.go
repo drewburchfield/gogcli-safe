@@ -241,7 +241,7 @@ func buildNonCmdPrefix(fields []parsedField) string {
 func buildSpecsForStruct(structs map[string]*parsedStruct, structName, yamlKey string, specs *[]serviceSpec) {
 	ps, ok := structs[structName]
 	if !ok {
-		warn("struct %s not found in types files", structName)
+		fatal("struct %s not found in types files (missing *_types.go entry?)", structName)
 		return
 	}
 

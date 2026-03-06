@@ -71,6 +71,10 @@ func main() {
 		fatal("parsing YAML: %v", err)
 	}
 
+	if len(profile) == 0 {
+		fatal("profile is empty or null - all services would be silently disabled. Check your YAML file.")
+	}
+
 	outputDir := "internal/cmd"
 
 	structs, err := parseTypesFiles(outputDir)
@@ -193,8 +197,16 @@ func generateCLIFile(dir string, profile map[string]any, cliAliases []field, cli
 	// Service commands: include services that have at least one enabled command.
 	// Fields without a YAMLKey (utility commands) are always included.
 	for _, f := range cliServices {
-		if f.YAMLKey != "" && isServiceDisabled(profile, f.YAMLKey) {
-			continue
+		if f.YAMLKey != "" {
+			if isServiceDisabled(profile, f.YAMLKey) {
+				continue
+			}
+			// Also skip if service map is present but all leaves are false
+			// (e.g., gmail: { send: false, drafts: { create: false } }).
+			svcConfig := resolveDottedSection(profile, f.YAMLKey)
+			if svcConfig != nil && !mapHasEnabledLeaf(svcConfig) {
+				continue
+			}
 		}
 		writeStructField(&buf, f)
 	}
