@@ -13,6 +13,10 @@
 #
 set -euo pipefail
 
+# Anchor to repo root so relative paths (internal/cmd, go.mod) always work
+# regardless of where the user invokes the script from.
+cd "$(dirname "$0")"
+
 if [[ -z "${1:-}" ]] || [[ "$1" == -* ]]; then
   echo "Usage: $0 <profile.yaml> [-o output]" >&2
   echo "" >&2

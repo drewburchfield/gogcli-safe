@@ -23,6 +23,10 @@ gmail:
   batch:
     modify: true
     delete: true
+  archive: true
+  mark-read: true
+  unread: true
+  trash: true
   send: true
   track: true
   drafts:
@@ -142,6 +146,7 @@ sheets:
   get: true
   metadata: true
   notes: true
+  links: true
   export: true
   update: true
   append: true
