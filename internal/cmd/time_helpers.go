@@ -49,7 +49,7 @@ func getCalendarLocation(ctx context.Context, svc *calendar.Service, calendarID 
 	if cal.TimeZone == "" {
 		return "", nil, fmt.Errorf("calendar %q has no timezone set", calendarID)
 	}
-	loc, err := time.LoadLocation(cal.TimeZone)
+	loc, err := loadTimezoneLocation(cal.TimeZone)
 	if err != nil {
 		return "", nil, fmt.Errorf("invalid calendar timezone %q: %w", cal.TimeZone, err)
 	}
@@ -86,32 +86,32 @@ func getUserTimezone(ctx context.Context, svc *calendar.Service) (*time.Location
 }
 
 func timezoneFromCalendarList(calendars []*calendar.CalendarListEntry) (*time.Location, error) {
-	ordered := make([]*calendar.CalendarListEntry, 0, len(calendars))
-	for _, cal := range calendars {
-		if cal != nil && cal.Primary {
-			ordered = append(ordered, cal)
-		}
-	}
-	for _, cal := range calendars {
-		if cal != nil && !cal.Primary {
-			ordered = append(ordered, cal)
-		}
-	}
-
+	var fallback *time.Location
 	var firstInvalid error
-	for _, cal := range ordered {
+	for _, cal := range calendars {
+		if cal == nil {
+			continue
+		}
 		tz := strings.TrimSpace(cal.TimeZone)
 		if tz == "" {
 			continue
 		}
-		loc, err := time.LoadLocation(tz)
+		loc, err := loadTimezoneLocation(tz)
 		if err != nil {
 			if firstInvalid == nil {
 				firstInvalid = fmt.Errorf("invalid calendar timezone %q on calendar %q: %w", tz, cal.Id, err)
 			}
 			continue
 		}
-		return loc, nil
+		if cal.Primary {
+			return loc, nil
+		}
+		if fallback == nil {
+			fallback = loc
+		}
+	}
+	if fallback != nil {
+		return fallback, nil
 	}
 	if firstInvalid != nil {
 		return nil, firstInvalid
@@ -124,7 +124,7 @@ func loadTimezoneOrUTC(timezone string) (*time.Location, error) {
 	if strings.TrimSpace(timezone) == "" {
 		return time.UTC, nil
 	}
-	loc, err := time.LoadLocation(timezone)
+	loc, err := loadTimezoneLocation(timezone)
 	if err != nil {
 		return nil, fmt.Errorf("invalid calendar timezone %q: %w", timezone, err)
 	}
