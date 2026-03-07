@@ -13,7 +13,7 @@ import (
 )
 
 type ChatMessagesReactionsCmd struct {
-	Create ChatMessagesReactionsCreateCmd `cmd:"" name:"create" aliases:"add,emoji" help:"Add an emoji reaction to a message"`
+	Create ChatMessagesReactionsCreateCmd `cmd:"" name:"create" aliases:"add" help:"Add an emoji reaction to a message"`
 	List   ChatMessagesReactionsListCmd   `cmd:"" name:"list" aliases:"ls" help:"List reactions on a message"`
 	Delete ChatMessagesReactionsDeleteCmd `cmd:"" name:"delete" aliases:"remove,rm" help:"Delete a reaction"`
 }
