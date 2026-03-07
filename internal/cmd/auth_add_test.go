@@ -659,6 +659,103 @@ func TestAuthAddCmd_RemoteStep1_PrintsAuthURL(t *testing.T) {
 	}
 }
 
+func TestAuthAddCmd_RemoteStep1_PreservesAllReplayFlags(t *testing.T) {
+	origManualURL := manualAuthURL
+	origAuth := authorizeGoogle
+	origKeychain := ensureKeychainAccess
+	t.Cleanup(func() {
+		manualAuthURL = origManualURL
+		authorizeGoogle = origAuth
+		ensureKeychainAccess = origKeychain
+	})
+
+	manualAuthURL = func(context.Context, googleauth.AuthorizeOptions) (googleauth.ManualAuthURLResult, error) {
+		return googleauth.ManualAuthURLResult{URL: "https://example.com/auth"}, nil
+	}
+	authorizeGoogle = func(context.Context, googleauth.AuthorizeOptions) (string, error) {
+		t.Fatal("authorizeGoogle should not be called in remote step 1")
+		return "", nil
+	}
+	ensureKeychainAccess = func() error {
+		t.Fatal("keychain access should not be checked in remote step 1")
+		return nil
+	}
+
+	stderr := captureStderr(t, func() {
+		_ = captureStdout(t, func() {
+			if err := Execute([]string{
+				"auth",
+				"add",
+				"user@example.com",
+				"--services",
+				"gmail,drive",
+				"--remote",
+				"--step",
+				"1",
+				"--drive-scope",
+				"file",
+				"--gmail-scope",
+				"readonly",
+				"--force-consent",
+			}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+
+	want := "Run again with the same root flags and --remote --step 2 --auth-url <redirect-url> --services gmail,drive --drive-scope file --gmail-scope readonly --force-consent"
+	if !strings.Contains(stderr, want) {
+		t.Fatalf("expected replay guidance %q, got %q", want, stderr)
+	}
+}
+
+func TestAuthAddCmd_RemoteStep1_OmitsDefaultScopeFlags(t *testing.T) {
+	origManualURL := manualAuthURL
+	origAuth := authorizeGoogle
+	origKeychain := ensureKeychainAccess
+	t.Cleanup(func() {
+		manualAuthURL = origManualURL
+		authorizeGoogle = origAuth
+		ensureKeychainAccess = origKeychain
+	})
+
+	manualAuthURL = func(context.Context, googleauth.AuthorizeOptions) (googleauth.ManualAuthURLResult, error) {
+		return googleauth.ManualAuthURLResult{URL: "https://example.com/auth"}, nil
+	}
+	authorizeGoogle = func(context.Context, googleauth.AuthorizeOptions) (string, error) {
+		t.Fatal("authorizeGoogle should not be called in remote step 1")
+		return "", nil
+	}
+	ensureKeychainAccess = func() error {
+		t.Fatal("keychain access should not be checked in remote step 1")
+		return nil
+	}
+
+	stderr := captureStderr(t, func() {
+		_ = captureStdout(t, func() {
+			if err := Execute([]string{
+				"auth",
+				"add",
+				"user@example.com",
+				"--services",
+				"gmail,drive",
+				"--remote",
+				"--step",
+				"1",
+			}); err != nil {
+				t.Fatalf("Execute: %v", err)
+			}
+		})
+	})
+
+	if strings.Contains(stderr, "--drive-scope full") {
+		t.Fatalf("expected default drive scope to be omitted, got %q", stderr)
+	}
+	if strings.Contains(stderr, "--gmail-scope full") {
+		t.Fatalf("expected default gmail scope to be omitted, got %q", stderr)
+	}
+}
+
 func TestAuthAddCmd_RemoteStep2_RejectsAuthCode(t *testing.T) {
 	err := Execute([]string{
 		"auth",
