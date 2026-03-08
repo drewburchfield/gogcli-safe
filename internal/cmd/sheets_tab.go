@@ -203,12 +203,7 @@ func (c *SheetsDeleteTabCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return err
 	}
 
-	confirmFlags := &RootFlags{}
-	if flags != nil {
-		*confirmFlags = *flags
-	}
-	confirmFlags.DryRun = false
-	if err := confirmDestructive(ctx, confirmFlags, "delete sheet tab "+tabName); err != nil {
+	if err := confirmDestructiveChecked(ctx, flagsWithoutDryRun(flags), "delete sheet tab "+tabName); err != nil {
 		return err
 	}
 

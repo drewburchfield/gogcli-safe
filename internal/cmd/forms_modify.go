@@ -236,12 +236,7 @@ func (c *FormsDeleteQuestionCmd) Run(ctx context.Context, flags *RootFlags) erro
 		return dryRunErr
 	}
 
-	confirmFlags := &RootFlags{}
-	if flags != nil {
-		*confirmFlags = *flags
-	}
-	confirmFlags.DryRun = false
-	if confirmErr := confirmDestructive(ctx, confirmFlags, fmt.Sprintf("delete question %d from form %s", c.Index, formID)); confirmErr != nil {
+	if confirmErr := confirmDestructiveChecked(ctx, flagsWithoutDryRun(flags), fmt.Sprintf("delete question %d from form %s", c.Index, formID)); confirmErr != nil {
 		return confirmErr
 	}
 

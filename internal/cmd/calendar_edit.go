@@ -973,7 +973,13 @@ func (c *CalendarDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 	if scope == scopeFuture {
 		confirmMessage = fmt.Sprintf("delete event %s (instance start %s) and all following from calendar %s", eventID, c.OriginalStartTime, calendarID)
 	}
-	if confirmErr := confirmDestructive(ctx, flags, confirmMessage); confirmErr != nil {
+	if confirmErr := dryRunAndConfirmDestructive(ctx, flags, "calendar.delete", map[string]any{
+		"calendar_id":    calendarID,
+		"event_id":       eventID,
+		"scope":          scope,
+		"original_start": c.OriginalStartTime,
+		"send_updates":   sendUpdates,
+	}, confirmMessage); confirmErr != nil {
 		return confirmErr
 	}
 

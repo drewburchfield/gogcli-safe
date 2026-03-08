@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -235,5 +236,43 @@ func TestCalendarDeleteCmd_ScopeFuture(t *testing.T) {
 	}
 	if !payload.Deleted || payload.EventID != "ev_2" || len(patchedRecurrence) == 0 {
 		t.Fatalf("unexpected output: %#v", payload)
+	}
+}
+
+func TestCalendarDeleteCmd_DryRunSkipsService(t *testing.T) {
+	origNew := newCalendarService
+	t.Cleanup(func() { newCalendarService = origNew })
+
+	called := false
+	newCalendarService = func(context.Context, string) (*calendar.Service, error) {
+		called = true
+		return nil, errors.New("unexpected service creation")
+	}
+
+	u, err := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
+	if err != nil {
+		t.Fatalf("ui.New: %v", err)
+	}
+	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
+
+	cmd := CalendarDeleteCmd{CalendarID: "cal@example.com", EventID: "ev"}
+	out := captureStdout(t, func() {
+		err := cmd.Run(ctx, &RootFlags{Account: "a@b.com", DryRun: true, NoInput: true})
+		if ExitCode(err) != 0 {
+			t.Fatalf("expected dry-run exit, got %v", err)
+		}
+	})
+	if called {
+		t.Fatalf("expected no service creation during dry-run")
+	}
+	var payload struct {
+		Op      string         `json:"op"`
+		Request map[string]any `json:"request"`
+	}
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("decode output: %v", err)
+	}
+	if payload.Op != "calendar.delete" || payload.Request["event_id"] != "ev" {
+		t.Fatalf("unexpected dry-run output: %#v", payload)
 	}
 }

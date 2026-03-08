@@ -585,7 +585,10 @@ func (c *DriveDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
 	if c.Permanent {
 		action = "permanently delete drive file"
 	}
-	if confirmErr := confirmDestructive(ctx, flags, fmt.Sprintf("%s %s", action, fileID)); confirmErr != nil {
+	if confirmErr := dryRunAndConfirmDestructive(ctx, flags, "drive.delete", map[string]any{
+		"file_id":   fileID,
+		"permanent": c.Permanent,
+	}, fmt.Sprintf("%s %s", action, fileID)); confirmErr != nil {
 		return confirmErr
 	}
 
