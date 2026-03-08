@@ -27,6 +27,7 @@
 - Contacts: add `--relation type=person` to contact create/update, include relations in text `contacts get`, and cover relation payload updates. (#351) — thanks @karbassi.
 - Contacts: add `--address` to contact create/update and include addresses in text `contacts get`. (#148) — thanks @beezly.
 - Docs: add `--pageless` to `docs create`, `docs write`, and `docs update` to switch documents into pageless mode after writes. (#300) — thanks @shohei-majima.
+- Tasks: add `--recur` / `--recur-rrule` aliases for repeat materialization, including RRULE `INTERVAL` support for generated occurrences. (#408) — thanks @salmonumbrella.
 - Gmail: add `watch serve --history-types` filtering (`messageAdded|messageDeleted|labelAdded|labelRemoved`) and include `deletedMessageIds` in webhook payloads. (#168) — thanks @salmonumbrella.
 - Drive: add `drive ls --all` (alias `--global`) to list across all accessible files; make `--all` and `--parent` mutually exclusive. (#107) — thanks @struong.
 - Sheets: add `sheets insert` to insert rows/columns into a sheet. (#203) — thanks @andybergon.
