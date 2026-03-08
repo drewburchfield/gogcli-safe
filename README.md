@@ -379,7 +379,7 @@ Service scope matrix (auto-generated; run `go run scripts/gen-auth-services-md.g
 | forms | yes | Forms API | `https://www.googleapis.com/auth/forms.body`<br>`https://www.googleapis.com/auth/forms.responses.readonly` |  |
 | appscript | yes | Apps Script API | `https://www.googleapis.com/auth/script.projects`<br>`https://www.googleapis.com/auth/script.deployments`<br>`https://www.googleapis.com/auth/script.processes` |  |
 | groups | no | Cloud Identity API | `https://www.googleapis.com/auth/cloud-identity.groups.readonly` | Workspace only |
-| keep | no | Keep API | `https://www.googleapis.com/auth/keep.readonly` | Workspace only; service account (domain-wide delegation) |
+| keep | no | Keep API | `https://www.googleapis.com/auth/keep` | Workspace only; service account (domain-wide delegation) |
 <!-- auth-services:end -->
 
 ### Service Accounts (Workspace only)
@@ -430,6 +430,8 @@ Keep requires Workspace + domain-wide delegation. You can configure it via the g
 gog auth service-account set you@yourdomain.com --key ~/Downloads/service-account.json
 gog keep list --account you@yourdomain.com
 gog keep get <noteId> --account you@yourdomain.com
+gog keep create --title "Todo" --item "Milk" --item "Eggs" --account you@yourdomain.com
+gog keep delete <noteId> --account you@yourdomain.com --force
 ```
 
 ### Environment Variables
@@ -584,6 +586,9 @@ gog auth tokens                       # Manage stored refresh tokens
 gog keep list --account you@yourdomain.com
 gog keep get <noteId> --account you@yourdomain.com
 gog keep search <query> --account you@yourdomain.com
+gog keep create --title "Todo" --item "Milk" --item "Eggs" --account you@yourdomain.com
+gog keep create --title "Note" --text "Remember this" --account you@yourdomain.com
+gog keep delete <noteId> --account you@yourdomain.com --force
 gog keep attachment <attachmentName> --account you@yourdomain.com --out ./attachment.bin
 ```
 

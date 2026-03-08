@@ -31,6 +31,7 @@
 - Drive: add `drive ls --all` (alias `--global`) to list across all accessible files; make `--all` and `--parent` mutually exclusive. (#107) — thanks @struong.
 - Sheets: add `sheets insert` to insert rows/columns into a sheet. (#203) — thanks @andybergon.
 - Sheets: add `sheets links` (alias `hyperlinks`) to list cell links from ranges, including rich-text links. (#374) — thanks @omothm.
+- Keep: add `keep create` for text/checklist notes and `keep delete` for note removal. (#413) — thanks @jgwesterlund.
 
 ### Fixed
 - Timezone: embed the IANA timezone database so Windows builds can resolve calendar timezones correctly. (#388) — thanks @visionik.
@@ -72,6 +73,7 @@
 - Contacts: fix grouped parameter types in CRUD helpers to restore builds on newer Go toolchains. (#355) — thanks @laihenyi.
 - CI: validate release tags and quote the checkout ref in the release workflow to block tag-script injection on manual releases. (#299) — thanks @salmonumbrella.
 - Build: refresh the dependency stack to Go 1.26.1, current Go indirects, GitHub Actions v6/v7 pins, and current Cloudflare worker dependencies.
+- Keep: request the writable Keep service-account scope now that note create/delete is supported. (#413) — thanks @jgwesterlund.
 
 ## 0.11.0 - 2026-02-15
 
