@@ -32,6 +32,7 @@ func openUserOutputFile(path string, opts outputFileOptions) (*os.File, string, 
 	}
 	if dir := filepath.Dir(expanded); dir != "." {
 		// User picked the destination path; create missing parents with private perms.
+		// #nosec G301,G703 -- destination directory is explicitly chosen by the caller.
 		if mkdirErr := os.MkdirAll(dir, dirMode); mkdirErr != nil {
 			return nil, "", mkdirErr
 		}
