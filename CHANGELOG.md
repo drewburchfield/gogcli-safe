@@ -14,6 +14,7 @@
 - Docs: add native Google Docs HTML export via `docs export --format html`. (#141) — thanks @in-liberty420.
 - Docs: extend `docs find-replace` with `--first`, `--content-file`, Markdown replacement, inline image insertion, and image sizing syntax. (#305) — thanks @chparsons.
 - Auth: add `auth add --redirect-uri` for manual/remote OAuth flows, so custom callback hosts can be reused across the printed auth URL, state cache, and code exchange. (#398) — thanks @salmonumbrella.
+- Auth: add `auth add|manage --listen-addr` plus `--redirect-host` for browser OAuth behind proxies or remote loopback forwarding. (#227) — thanks @cyberfox.
 - Auth: add `--extra-scopes` to `auth add` for appending custom OAuth scope URIs beyond the built-in service scopes. (#421) — thanks @peteradams2026.
 - Gmail: add `gmail labels rename` to rename user labels by ID or exact name, with system-label guards and wrong-case ID safety. (#391) — thanks @adam-zethraeus.
 - Gmail: add `gmail messages modify` for single-message label changes, complementing thread- and batch-level modify flows. (#281) — thanks @zerone0x.

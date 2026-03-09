@@ -21,6 +21,8 @@ type AuthAddCmd struct {
 	Manual       bool          `name:"manual" help:"Browserless auth flow (paste redirect URL)"`
 	Remote       bool          `name:"remote" help:"Remote/server-friendly manual flow (print URL, then exchange code)"`
 	Step         int           `name:"step" help:"Remote auth step: 1=print URL, 2=exchange code"`
+	ListenAddr   string        `name:"listen-addr" help:"Address to listen on for OAuth callback (for example 0.0.0.0 or 0.0.0.0:8080)"`
+	RedirectHost string        `name:"redirect-host" help:"Hostname for OAuth callback in browser flows; builds https://{host}/oauth2/callback"`
 	RedirectURI  string        `name:"redirect-uri" help:"Override OAuth redirect URI for manual/remote flows (for example https://host.example/oauth2/callback)"`
 	AuthURL      string        `name:"auth-url" help:"Redirect URL from browser (manual flow; required for --remote --step 2)"`
 	AuthCode     string        `name:"auth-code" hidden:"" help:"UNSAFE: Authorization code from browser (manual flow; skips state check; not valid with --remote)"`
@@ -35,6 +37,9 @@ type AuthAddCmd struct {
 
 func formatRemoteStep2Instruction(services []googleauth.Service, c *AuthAddCmd) string {
 	parts := []string{"--remote", "--step", "2", "--auth-url", "<redirect-url>"}
+	if redirectHost := strings.TrimSpace(c.RedirectHost); redirectHost != "" {
+		parts = append(parts, "--redirect-host", redirectHost)
+	}
 	if redirectURI := strings.TrimSpace(c.RedirectURI); redirectURI != "" {
 		parts = append(parts, "--redirect-uri", redirectURI)
 	}
@@ -72,6 +77,21 @@ func parseExtraScopesCSV(raw string) []string {
 		}
 	}
 	return scopes
+}
+
+func (c *AuthAddCmd) resolvedRedirectURI() (string, error) {
+	redirectURI := strings.TrimSpace(c.RedirectURI)
+	if strings.TrimSpace(c.RedirectHost) != "" && redirectURI != "" {
+		return "", usage("cannot combine --redirect-host with --redirect-uri")
+	}
+	if strings.TrimSpace(c.RedirectHost) == "" {
+		return redirectURI, nil
+	}
+	return redirectURIFromHost(c.RedirectHost)
+}
+
+func (c *AuthAddCmd) isManualFlow(authURL, authCode string) bool {
+	return c.Manual || c.Remote || authURL != "" || authCode != "" || strings.TrimSpace(c.RedirectURI) != ""
 }
 
 func (c *AuthAddCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -115,7 +135,10 @@ func (c *AuthAddCmd) Run(ctx context.Context, flags *RootFlags) error {
 
 	authURL := strings.TrimSpace(c.AuthURL)
 	authCode := strings.TrimSpace(c.AuthCode)
-	redirectURI := strings.TrimSpace(c.RedirectURI)
+	redirectURI, err := c.resolvedRedirectURI()
+	if err != nil {
+		return err
+	}
 	if authURL != "" && authCode != "" {
 		return usage("cannot combine --auth-url with --auth-code")
 	}
@@ -126,7 +149,7 @@ func (c *AuthAddCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return usage("--step requires --remote")
 	}
 
-	manual := c.Manual || c.Remote || authURL != "" || authCode != "" || redirectURI != ""
+	manual := c.isManualFlow(authURL, authCode)
 
 	if c.Remote {
 		step := c.Step
@@ -187,6 +210,8 @@ func (c *AuthAddCmd) Run(ctx context.Context, flags *RootFlags) error {
 		"manual":        c.Manual,
 		"remote":        c.Remote,
 		"step":          c.Step,
+		"listen_addr":   strings.TrimSpace(c.ListenAddr),
+		"redirect_host": strings.TrimSpace(c.RedirectHost),
 		"redirect_uri":  redirectURI,
 		"force_consent": c.ForceConsent,
 		"readonly":      c.Readonly,
@@ -211,6 +236,7 @@ func (c *AuthAddCmd) Run(ctx context.Context, flags *RootFlags) error {
 		Client:                      client,
 		AuthURL:                     authURL,
 		AuthCode:                    authCode,
+		ListenAddr:                  strings.TrimSpace(c.ListenAddr),
 		RedirectURI:                 redirectURI,
 		RequireState:                c.Remote,
 	})

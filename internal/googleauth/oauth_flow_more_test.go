@@ -2,6 +2,7 @@ package googleauth
 
 import (
 	"context"
+	"net"
 	"net/url"
 	"strings"
 	"testing"
@@ -139,5 +140,55 @@ func TestAuthorize_InvalidRedirectURI(t *testing.T) {
 
 	if !strings.Contains(err.Error(), "parse redirect uri") {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestNormalizeListenAddr(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{in: "", want: "127.0.0.1:0"},
+		{in: "0.0.0.0", want: "0.0.0.0:0"},
+		{in: "0.0.0.0:8080", want: "0.0.0.0:8080"},
+		{in: "[::1]", want: "[::1]:0"},
+		{in: "[::1]:9090", want: "[::1]:9090"},
+	}
+	for _, tt := range tests {
+		got, err := normalizeListenAddr(tt.in)
+		if err != nil {
+			t.Fatalf("normalizeListenAddr(%q): %v", tt.in, err)
+		}
+
+		if got != tt.want {
+			t.Fatalf("normalizeListenAddr(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+
+	if _, err := normalizeListenAddr("::1"); err == nil {
+		t.Fatalf("expected raw IPv6 without brackets to be rejected")
+	}
+}
+
+func TestResolveServerRedirectURI(t *testing.T) {
+	t.Parallel()
+
+	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("listen: %v", err)
+	}
+
+	t.Cleanup(func() { _ = ln.Close() })
+
+	got := resolveServerRedirectURI(ln, "https://host.example/oauth2/callback")
+	if got != "https://host.example/oauth2/callback" {
+		t.Fatalf("unexpected redirect override: %q", got)
+	}
+
+	got = resolveServerRedirectURI(ln, "")
+	if !strings.Contains(got, "127.0.0.1:") {
+		t.Fatalf("expected local listener redirect, got %q", got)
 	}
 }

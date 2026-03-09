@@ -392,6 +392,8 @@ type AuthManageCmd struct {
 	ForceConsent bool          `name:"force-consent" help:"Force consent screen when adding accounts"`
 	ServicesCSV  string        `name:"services" help:"Services to authorize: user|all or comma-separated ${auth_services} (Keep uses service account: gog auth service-account set)" default:"user"`
 	Timeout      time.Duration `name:"timeout" help:"Server timeout duration" default:"10m"`
+	ListenAddr   string        `name:"listen-addr" help:"Address to listen on for OAuth callback (for example 0.0.0.0 or 0.0.0.0:8080)"`
+	RedirectHost string        `name:"redirect-host" help:"Hostname for OAuth callback; builds https://{host}/oauth2/callback"`
 }
 
 func (c *AuthManageCmd) Run(ctx context.Context, _ *RootFlags) error {
@@ -399,12 +401,21 @@ func (c *AuthManageCmd) Run(ctx context.Context, _ *RootFlags) error {
 	if err != nil {
 		return err
 	}
+	redirectURI := ""
+	if strings.TrimSpace(c.RedirectHost) != "" {
+		redirectURI, err = redirectURIFromHost(c.RedirectHost)
+		if err != nil {
+			return err
+		}
+	}
 
 	return startManageServer(ctx, googleauth.ManageServerOptions{
 		Timeout:      c.Timeout,
 		Services:     services,
 		ForceConsent: c.ForceConsent,
 		Client:       authclient.ClientOverrideFromContext(ctx),
+		ListenAddr:   strings.TrimSpace(c.ListenAddr),
+		RedirectURI:  redirectURI,
 	})
 }
 

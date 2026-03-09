@@ -849,6 +849,88 @@ func TestAuthAddCmd_RemoteStep1_ReplaysRedirectURIInGuidance(t *testing.T) {
 	}
 }
 
+func TestAuthAddCmd_RemoteStep1_PassesRedirectHostAsRedirectURI(t *testing.T) {
+	origManualURL := manualAuthURL
+	origAuth := authorizeGoogle
+	origKeychain := ensureKeychainAccess
+	t.Cleanup(func() {
+		manualAuthURL = origManualURL
+		authorizeGoogle = origAuth
+		ensureKeychainAccess = origKeychain
+	})
+
+	var gotOpts googleauth.AuthorizeOptions
+	manualAuthURL = func(_ context.Context, opts googleauth.AuthorizeOptions) (googleauth.ManualAuthURLResult, error) {
+		gotOpts = opts
+		return googleauth.ManualAuthURLResult{URL: "https://example.com/auth"}, nil
+	}
+	authorizeGoogle = func(context.Context, googleauth.AuthorizeOptions) (string, error) {
+		t.Fatal("authorizeGoogle should not be called in remote step 1")
+		return "", nil
+	}
+	ensureKeychainAccess = func() error {
+		t.Fatal("keychain access should not be checked in remote step 1")
+		return nil
+	}
+
+	if err := Execute([]string{
+		"auth", "add", "user@example.com",
+		"--services", "gmail",
+		"--remote", "--step", "1",
+		"--redirect-host", "gog.example.com",
+	}); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if gotOpts.RedirectURI != "https://gog.example.com/oauth2/callback" {
+		t.Fatalf("unexpected redirect uri: %q", gotOpts.RedirectURI)
+	}
+}
+
+func TestAuthAddCmd_BrowserFlow_PassesListenAddrAndRedirectHost(t *testing.T) {
+	origAuth := authorizeGoogle
+	origKeychain := ensureKeychainAccess
+	origFetch := fetchAuthorizedEmail
+	origStore := openSecretsStore
+	t.Cleanup(func() {
+		authorizeGoogle = origAuth
+		ensureKeychainAccess = origKeychain
+		fetchAuthorizedEmail = origFetch
+		openSecretsStore = origStore
+	})
+
+	var gotOpts googleauth.AuthorizeOptions
+	authorizeGoogle = func(_ context.Context, opts googleauth.AuthorizeOptions) (string, error) {
+		gotOpts = opts
+		return "refresh", nil
+	}
+	ensureKeychainAccess = func() error { return nil }
+	fetchAuthorizedEmail = func(context.Context, string, string, []string, time.Duration) (string, error) {
+		return "user@example.com", nil
+	}
+	store := newMemSecretsStore()
+	openSecretsStore = func() (secrets.Store, error) { return store, nil }
+
+	if err := Execute([]string{
+		"auth", "add", "user@example.com",
+		"--services", "gmail",
+		"--listen-addr", "0.0.0.0:8080",
+		"--redirect-host", "gog.example.com",
+	}); err != nil {
+		t.Fatalf("Execute: %v", err)
+	}
+
+	if gotOpts.ListenAddr != "0.0.0.0:8080" {
+		t.Fatalf("unexpected listen addr: %q", gotOpts.ListenAddr)
+	}
+	if gotOpts.RedirectURI != "https://gog.example.com/oauth2/callback" {
+		t.Fatalf("unexpected redirect uri: %q", gotOpts.RedirectURI)
+	}
+	if gotOpts.Manual {
+		t.Fatalf("redirect-host should not force manual mode")
+	}
+}
+
 func TestAuthAddCmd_RemoteStep1_ReplaysExtraScopesInGuidance(t *testing.T) {
 	origManualURL := manualAuthURL
 	origAuth := authorizeGoogle

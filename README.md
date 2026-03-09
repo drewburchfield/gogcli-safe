@@ -141,6 +141,17 @@ gog auth add you@gmail.com --services user --remote --step 2 --auth-url 'http://
 - The `state` is cached on disk for a short time (about 10 minutes). If it expires, rerun step 1.
 - Remote step 2 requires a redirect URL that includes `state` (state check mandatory).
 
+Browser OAuth behind proxies / remote tunnels:
+
+```bash
+gog auth add you@gmail.com --listen-addr 0.0.0.0:8080 --redirect-host gog.example.com
+gog auth manage --listen-addr 0.0.0.0:8080 --redirect-host gog.example.com
+```
+
+- `--listen-addr` changes where the local callback server binds.
+- `--redirect-host` builds `https://<host>/oauth2/callback` for the OAuth redirect URI.
+- The redirect URI must also be registered in your OAuth client settings.
+
 Direct access token flow (headless/CI, no stored refresh token):
 
 ```bash
@@ -566,6 +577,7 @@ gog auth credentials list             # List stored OAuth client credentials
 gog --client work auth credentials <path>  # Store named OAuth client credentials
 gog auth add <email>                  # Authorize and store refresh token
 gog auth add <email> --services gmail --gmail-scope readonly  # Gmail read-only token
+gog auth add <email> --listen-addr 0.0.0.0:8080 --redirect-host gog.example.com
 gog auth service-account set <email> --key <path>  # Configure service account impersonation (Workspace only)
 gog auth service-account status <email>            # Show service account status
 gog auth service-account unset <email>             # Remove service account
@@ -577,6 +589,7 @@ gog auth list                         # List stored accounts
 gog auth list --check                 # Validate stored refresh tokens
 gog auth remove <email>               # Remove a stored refresh token
 gog auth manage                       # Open accounts manager in browser
+gog auth manage --listen-addr 0.0.0.0:8080 --redirect-host gog.example.com
 gog auth tokens                       # Manage stored refresh tokens
 ```
 
