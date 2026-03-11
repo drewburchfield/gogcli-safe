@@ -12,6 +12,7 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
+
 type ChatMessagesListCmd struct {
 	Space     string `arg:"" name:"space" help:"Space name (spaces/...)"`
 	Max       int64  `name:"max" aliases:"limit" help:"Max results" default:"50"`

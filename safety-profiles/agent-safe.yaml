@@ -22,6 +22,7 @@ gmail:
     create: true             # Create labels for triage
     modify: true             # Apply/remove labels
     delete: false
+    rename: true             # Rename labels for triage
   batch:
     modify: true             # Bulk label changes for triage
     delete: false
@@ -67,6 +68,8 @@ calendar:
   focus-time: true
   out-of-office: false
   working-location: false
+  alias: true
+  subscribe: false
 
 drive:
   ls: true
@@ -157,6 +160,19 @@ sheets:
   format: false
   create: false
   copy: false
+  add-tab: false
+  delete-tab: false
+  find-replace: false
+  freeze: false
+  merge: false
+  named-ranges: false
+  number-format: false
+  read-format: true
+  rename-tab: false
+  resize-columns: false
+  resize-rows: false
+  unmerge: false
+  update-note: false
 
 slides:
   export: true
@@ -165,6 +181,7 @@ slides:
   read-slide: true
   create: false
   create-from-markdown: false
+  create-from-template: false
   copy: false
   add-slide: false
   delete-slide: false
@@ -179,6 +196,8 @@ chat:
   messages:
     list: true
     send: false
+    react: false
+    reactions: true
   threads:
     list: true
   dm:
@@ -188,6 +207,11 @@ chat:
 forms:
   get: true
   create: false
+  add-question: false
+  delete-question: false
+  move-question: false
+  update: false
+  watch: false
   responses:
     list: true
     get: true
@@ -215,6 +239,8 @@ keep:
   get: true
   search: true
   attachment: true
+  create: false
+  delete: false
 
 aliases:
   send: false
@@ -254,6 +280,8 @@ auth:
     unset: false
     status: true
   keep: false
+
+admin: false
 
 config: true
 time: true

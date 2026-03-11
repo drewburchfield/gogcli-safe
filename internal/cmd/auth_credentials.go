@@ -14,10 +14,6 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-type AuthCredentialsCmd struct {
-	Set  AuthCredentialsSetCmd  `cmd:"" default:"withargs" help:"Store OAuth client credentials"`
-	List AuthCredentialsListCmd `cmd:"" name:"list" help:"List stored OAuth client credentials"`
-}
 
 type AuthCredentialsSetCmd struct {
 	Path    string `arg:"" name:"credentials" help:"Path to credentials.json or '-' for stdin"`

@@ -20,6 +20,7 @@ gmail:
     create: true
     modify: true
     delete: true
+    rename: true
   batch:
     modify: true
     delete: true
@@ -65,6 +66,8 @@ calendar:
   focus-time: true
   out-of-office: true
   working-location: true
+  alias: true
+  subscribe: true
 
 drive:
   ls: true
@@ -155,6 +158,19 @@ sheets:
   format: true
   create: true
   copy: true
+  add-tab: true
+  delete-tab: true
+  find-replace: true
+  freeze: true
+  merge: true
+  named-ranges: true
+  number-format: true
+  read-format: true
+  rename-tab: true
+  resize-columns: true
+  resize-rows: true
+  unmerge: true
+  update-note: true
 
 slides:
   export: true
@@ -163,6 +179,7 @@ slides:
   read-slide: true
   create: true
   create-from-markdown: true
+  create-from-template: true
   copy: true
   add-slide: true
   delete-slide: true
@@ -177,6 +194,8 @@ chat:
   messages:
     list: true
     send: true
+    react: true
+    reactions: true
   threads:
     list: true
   dm:
@@ -186,6 +205,11 @@ chat:
 forms:
   get: true
   create: true
+  add-question: true
+  delete-question: true
+  move-question: true
+  update: true
+  watch: true
   responses:
     list: true
     get: true
@@ -213,6 +237,8 @@ keep:
   get: true
   search: true
   attachment: true
+  create: true
+  delete: true
 
 aliases:
   send: true
@@ -252,6 +278,8 @@ auth:
     unset: true
     status: true
   keep: true
+
+admin: true
 
 config: true
 time: true

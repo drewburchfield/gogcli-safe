@@ -3,10 +3,8 @@
 package cmd
 
 import (
-	"github.com/steipete/gogcli/internal/googleapi"
 )
 
-var newGmailService = googleapi.NewGmail
 
 type GmailCmd struct {
 	Search     GmailSearchCmd     `cmd:"" name:"search" aliases:"find,query,ls,list" group:"Read" help:"Search threads using Gmail query syntax"`
@@ -30,7 +28,6 @@ type GmailCmd struct {
 
 	Settings GmailSettingsCmd `cmd:"" name:"settings" group:"Admin" help:"Settings and admin"`
 
-	// Kept for backwards-compatibility; hidden from default help.
 	Watch       GmailWatchCmd       `cmd:"" name:"watch" hidden:"" help:"Manage Gmail watch"`
 	AutoForward GmailAutoForwardCmd `cmd:"" name:"autoforward" hidden:"" help:"Auto-forwarding settings"`
 	Delegates   GmailDelegatesCmd   `cmd:"" name:"delegates" hidden:"" help:"Delegate operations"`

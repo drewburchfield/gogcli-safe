@@ -15,6 +15,8 @@ import (
 
 var newFormsService = googleapi.NewForms
 
+
+
 type FormsGetCmd struct {
 	FormID string `arg:"" name:"formId" help:"Form ID"`
 }
@@ -100,6 +102,13 @@ func (c *FormsCreateCmd) Run(ctx context.Context, flags *RootFlags) error {
 	u := ui.FromContext(ctx)
 	u.Out().Printf("created\ttrue")
 	printFormSummary(u, form, formID)
+	u.Err().Println("")
+	u.Err().Println("# Tip: Email notifications for new responses must be enabled manually:")
+	u.Err().Println("#   1. Open the edit URL above in your browser")
+	u.Err().Println("#   2. Click the Responses tab")
+	u.Err().Println("#   3. Click the three-dot menu (⋮)")
+	u.Err().Println("#   4. Toggle 'Get email notifications for new responses'")
+	u.Err().Println("# This setting is not available via the API.")
 	return nil
 }
 
