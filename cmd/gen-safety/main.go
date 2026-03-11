@@ -9,6 +9,8 @@
 //	go run ./cmd/gen-safety [profile.yaml]
 //	go run ./cmd/gen-safety safety-profiles/readonly.yaml
 //	go run ./cmd/gen-safety --strict safety-profiles/agent-safe.yaml
+//	go run ./cmd/gen-safety --verify          # check types files are in sync
+//	go run ./cmd/gen-safety --sync            # extract structs to types files
 package main
 
 import (
@@ -53,14 +55,56 @@ func warn(msg string, args ...any) {
 func main() {
 	profilePath := "safety-profile.example.yaml"
 	strict := false
+	mode := "generate" // default mode
 	for _, arg := range os.Args[1:] {
-		if arg == "--strict" {
+		switch arg {
+		case "--strict":
 			strict = true
-		} else if strings.HasPrefix(arg, "-") {
-			fatal("unknown flag: %s", arg)
-		} else {
+		case "--verify":
+			mode = "verify"
+		case "--sync":
+			mode = "sync"
+		default:
+			if strings.HasPrefix(arg, "-") {
+				fatal("unknown flag: %s", arg)
+			}
 			profilePath = arg
 		}
+	}
+
+	outputDir := "internal/cmd"
+
+	// Handle --verify and --sync before profile-based generation.
+	if mode == "verify" || mode == "sync" {
+		if profilePath != "safety-profile.example.yaml" {
+			fatal("--%s does not accept a profile path", mode)
+		}
+		if strict {
+			fatal("--%s cannot be combined with --strict", mode)
+		}
+	}
+
+	if mode == "verify" {
+		violations, err := verifyTypes(outputDir)
+		if err != nil {
+			fatal("verify: %v", err)
+		}
+		if len(violations) == 0 {
+			fmt.Println("OK: all parent command structs are in *_types.go files")
+			return
+		}
+		fmt.Fprintf(os.Stderr, "gen-safety --verify: %d struct(s) need migration:\n", len(violations))
+		for _, v := range violations {
+			fmt.Fprintf(os.Stderr, "  - %s\n", v)
+		}
+		os.Exit(1)
+	}
+
+	if mode == "sync" {
+		if err := syncTypes(outputDir); err != nil {
+			fatal("sync: %v", err)
+		}
+		return
 	}
 
 	data, err := os.ReadFile(profilePath)
@@ -76,8 +120,6 @@ func main() {
 	if len(profile) == 0 {
 		fatal("profile is empty or null - all services would be silently disabled. Check your YAML file.")
 	}
-
-	outputDir := "internal/cmd"
 
 	structs, err := parseTypesFiles(outputDir)
 	if err != nil {
