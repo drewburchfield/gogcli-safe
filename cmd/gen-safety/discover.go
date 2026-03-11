@@ -95,6 +95,18 @@ func exprToString(expr ast.Expr) string {
 		return exprToString(e.X) + "." + e.Sel.Name
 	case *ast.StarExpr:
 		return "*" + exprToString(e.X)
+	case *ast.ArrayType:
+		if e.Len == nil {
+			return "[]" + exprToString(e.Elt)
+		}
+		// Fixed-size arrays: render the length expression (e.g., [4]byte).
+		return "[" + exprToString(e.Len) + "]" + exprToString(e.Elt)
+	case *ast.BasicLit:
+		return e.Value
+	case *ast.MapType:
+		return "map[" + exprToString(e.Key) + "]" + exprToString(e.Value)
+	case *ast.InterfaceType:
+		return "interface{}"
 	default:
 		fatal("unexpected AST node type %T in struct field type", expr)
 		return "" // unreachable
