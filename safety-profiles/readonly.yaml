@@ -1,0 +1,258 @@
+# Safety Profile: Read-Only
+#
+# The most restrictive useful profile. Only read/list/search/get commands
+# are enabled. Nothing can be created, modified, sent, or deleted.
+# Good for monitoring, auditing, and reporting workflows.
+
+gmail:
+  search: true
+  get: true
+  messages: true
+  attachment: true
+  url: true
+  history: true
+  thread:
+    get: true
+    modify: false
+    attachments: true
+  labels:
+    list: true
+    get: true
+    create: false
+    modify: false
+    delete: false
+  batch:
+    modify: false
+    delete: false
+  archive: false
+  mark-read: false
+  unread: false
+  trash: false
+  send: false
+  track: false
+  drafts:
+    list: true
+    get: true
+    create: false
+    update: false
+    delete: false
+    send: false
+  settings: false
+  watch: false
+  autoforward: false
+  delegates: false
+  filters: false
+  forwarding: false
+  sendas: false
+  vacation: false
+
+calendar:
+  calendars: true
+  acl: true
+  events: true
+  event: true
+  create: false
+  update: false
+  delete: false
+  freebusy: true
+  respond: false
+  propose-time: false
+  colors: true
+  conflicts: true
+  search: true
+  time: true
+  users: true
+  team: true
+  focus-time: false
+  out-of-office: false
+  working-location: false
+
+drive:
+  ls: true
+  search: true
+  get: true
+  download: true
+  upload: false
+  mkdir: false
+  copy: false
+  delete: false
+  move: false
+  rename: false
+  share: false
+  unshare: false
+  permissions: true
+  url: true
+  drives: true
+  comments:
+    list: true
+    get: true
+    create: false
+    update: false
+    delete: false
+    reply: false
+
+contacts:
+  search: true
+  list: true
+  get: true
+  create: false
+  update: false
+  delete: false
+  directory:
+    list: true
+    search: true
+  other:
+    list: true
+    search: true
+    delete: false
+
+tasks:
+  lists:
+    list: true
+    create: false
+  list: true
+  get: true
+  add: false
+  update: false
+  done: false
+  undo: false
+  delete: false
+  clear: false
+
+docs:
+  export: true
+  info: true
+  cat: true
+  list-tabs: true
+  create: false
+  copy: false
+  write: false
+  insert: false
+  delete: false
+  find-replace: false
+  update: false
+  edit: false
+  sed: false
+  clear: false
+  structure: true
+  comments:
+    list: true
+    get: true
+    add: false
+    reply: false
+    resolve: false
+    delete: false
+
+sheets:
+  get: true
+  metadata: true
+  notes: true
+  links: true
+  export: true
+  update: false
+  append: false
+  insert: false
+  clear: false
+  format: false
+  create: false
+  copy: false
+
+slides:
+  export: true
+  info: true
+  list-slides: true
+  read-slide: true
+  create: false
+  create-from-markdown: false
+  copy: false
+  add-slide: false
+  delete-slide: false
+  update-notes: false
+  replace-slide: false
+
+chat:
+  spaces:
+    list: true
+    find: true
+    create: false
+  messages:
+    list: true
+    send: false
+  threads:
+    list: true
+  dm:
+    send: false
+    space: false
+
+forms:
+  get: true
+  create: false
+  responses:
+    list: true
+    get: true
+
+appscript:
+  get: true
+  content: true
+  run: false
+  create: false
+
+classroom: false
+
+people:
+  me: true
+  get: true
+  search: true
+  relations: true
+
+groups:
+  list: true
+  members: true
+
+keep:
+  list: true
+  get: true
+  search: true
+  attachment: true
+
+aliases:
+  send: false
+  ls: true
+  search: true
+  open: true
+  download: true
+  upload: false
+  login: true
+  logout: false
+  status: true
+  me: true
+  whoami: true
+
+auth:
+  credentials:
+    set: false
+    list: true
+  add: false
+  services: true
+  list: true
+  alias:
+    list: true
+    set: false
+    unset: false
+  status: true
+  keyring: false
+  remove: false
+  tokens:
+    list: true
+    delete: false
+    export: false
+    import: false
+  manage: false
+  service-account:
+    set: false
+    unset: false
+    status: true
+  keep: false
+
+config: true
+time: true

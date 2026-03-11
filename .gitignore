@@ -38,5 +38,8 @@ go.work.sum
 bin/
 /gog
 
+# Safety profile generated files
+internal/cmd/*_cmd_gen.go
+
 # Node (optional dev scripts)
 node_modules/

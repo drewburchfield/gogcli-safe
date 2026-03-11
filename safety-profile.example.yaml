@@ -1,0 +1,289 @@
+# Safety Profile for gogcli-safe
+#
+# This file controls which commands are compiled into the binary.
+# Set a command to `false` to exclude it entirely from the build.
+# Commands set to `false` won't appear in --help or be callable.
+#
+# IMPORTANT: Commands not listed in this file are DISABLED by default
+# (fail-closed). To ensure all intended commands are included, copy
+# safety-profiles/full.yaml and set unwanted commands to false.
+#
+# Usage:
+#   ./build-safe.sh                          # Uses this file
+#   ./build-safe.sh safety-profiles/readonly.yaml  # Uses a preset
+#
+# Risk levels in comments:
+#   [safe]     - Read-only, no side effects
+#   [low]      - Creates content but recoverable (drafts, labels, tasks)
+#   [medium]   - Modifies state (move, rename, update)
+#   [high]     - Sends externally visible content (email, chat)
+#   [critical] - Permanent deletion or grants access to others
+
+gmail:
+  # Read commands [safe]
+  search: true
+  get: true
+  messages: true
+  attachment: true
+  url: true
+  history: true
+
+  thread:
+    get: true              # [safe] Read thread with messages
+    modify: true           # [low] Add/remove labels on thread messages
+    attachments: true      # [safe] List attachments in thread
+
+  labels:
+    list: true             # [safe]
+    get: true              # [safe]
+    create: true           # [low] Create new labels
+    modify: true           # [low] Apply/remove labels on messages
+    delete: false          # [critical] Delete a label
+
+  batch:
+    modify: true           # [low] Bulk label changes for triage
+    delete: false          # [critical] Permanently delete multiple messages
+
+  archive: true            # [low] Archive messages (remove from inbox)
+  mark-read: true          # [low] Mark messages as read
+  unread: true             # [low] Mark messages as unread
+  trash: false             # [critical] Move messages to trash
+
+  # Write commands
+  send: false              # [high] Send email
+  track: false             # [medium] Email open tracking
+
+  drafts:
+    list: true             # [safe]
+    get: true              # [safe]
+    create: true           # [low] Create draft replies
+    update: true           # [low] Update existing drafts
+    delete: false          # [medium] Delete a draft
+    send: false            # [high] Send a draft as email
+
+  # Admin commands
+  settings: false          # [critical] Entire settings tree (delegates, forwarding, filters, etc.)
+
+  # Hidden legacy aliases (mirror settings subcommands)
+  watch: false             # [critical]
+  autoforward: false       # [critical] Auto-forwarding settings
+  delegates: false         # [critical] Delegate access
+  filters: false           # [critical] Mail filters
+  forwarding: false        # [critical] Forwarding addresses
+  sendas: false            # [critical] Send-as settings
+  vacation: false          # [critical] Vacation responder
+
+calendar:
+  calendars: true          # [safe]
+  acl: true                # [safe]
+  events: true             # [safe]
+  event: true              # [safe]
+  create: true             # [low] Create events
+  update: true             # [medium] Update events
+  delete: true             # [medium] Delete events (recoverable)
+  freebusy: true           # [safe]
+  respond: true            # [medium] RSVP to invitations
+  propose-time: true       # [safe] Generate URL only
+  colors: true             # [safe]
+  conflicts: true          # [safe]
+  search: true             # [safe]
+  time: true               # [safe]
+  users: true              # [safe]
+  team: true               # [safe]
+  focus-time: true         # [low] Create focus time block
+  out-of-office: true      # [low] Create OOO event
+  working-location: true   # [low] Set working location
+
+drive:
+  ls: true                 # [safe]
+  search: true             # [safe]
+  get: true                # [safe]
+  download: true           # [safe]
+  upload: true             # [low] Upload files
+  mkdir: true              # [low] Create folders
+  copy: true               # [low] Copy files
+  delete: false            # [critical] Move to trash / permanent delete
+  move: true               # [medium] Move files between folders
+  rename: true             # [medium] Rename files
+  share: false             # [critical] Could expose files publicly
+  unshare: false           # [critical] Remove sharing permissions
+  permissions: true        # [safe] List permissions
+  url: true                # [safe]
+  drives: true             # [safe]
+  comments:
+    list: true             # [safe]
+    get: true              # [safe]
+    create: true           # [low] Add comments
+    update: true           # [low] Edit comments
+    delete: false          # [medium] Delete comments
+    reply: true            # [low] Reply to comments
+
+contacts:
+  search: true             # [safe]
+  list: true               # [safe]
+  get: true                # [safe]
+  create: true             # [low] Add contacts
+  update: true             # [medium] Update contacts
+  delete: false            # [critical] Delete contacts
+  directory:
+    list: true             # [safe]
+    search: true           # [safe]
+  other:
+    list: true             # [safe]
+    search: true           # [safe]
+    delete: false          # [critical] Delete other contacts
+
+tasks:
+  lists:
+    list: true             # [safe]
+    create: true           # [low]
+  list: true               # [safe]
+  get: true                # [safe]
+  add: true                # [low]
+  update: true             # [low]
+  done: true               # [low]
+  undo: true               # [low]
+  delete: true             # [low] Tasks are ephemeral
+  clear: true              # [low] Clear completed
+
+docs:
+  export: true             # [safe]
+  info: true               # [safe]
+  cat: true                # [safe]
+  list-tabs: true          # [safe]
+  create: false            # [low]
+  copy: false              # [low]
+  write: false             # [medium]
+  insert: false            # [medium]
+  delete: false            # [medium]
+  find-replace: false      # [medium]
+  update: false            # [medium]
+  edit: false              # [medium]
+  sed: false               # [medium]
+  clear: false             # [medium]
+  structure: true          # [safe]
+  comments:
+    list: true             # [safe]
+    get: true              # [safe]
+    add: false             # [low]
+    reply: false           # [low]
+    resolve: false         # [low]
+    delete: false          # [medium]
+
+sheets:
+  get: true                # [safe]
+  metadata: true           # [safe]
+  notes: true              # [safe]
+  links: true              # [safe]
+  export: true             # [safe]
+  update: false            # [medium]
+  append: false            # [medium]
+  insert: false            # [medium]
+  clear: false             # [medium]
+  format: false            # [medium]
+  create: false            # [low]
+  copy: false              # [low]
+
+slides:
+  export: true             # [safe]
+  info: true               # [safe]
+  list-slides: true        # [safe]
+  read-slide: true         # [safe]
+  create: false            # [low]
+  create-from-markdown: false # [low]
+  copy: false              # [low]
+  add-slide: false         # [medium]
+  delete-slide: false      # [medium]
+  update-notes: false      # [medium]
+  replace-slide: false     # [medium]
+
+chat:
+  spaces:
+    list: true             # [safe]
+    find: true             # [safe]
+    create: false          # [low]
+  messages:
+    list: true             # [safe]
+    send: false            # [high] Send chat message
+  threads:
+    list: true             # [safe]
+  dm:
+    send: false            # [high] Send DM
+    space: false           # [low] Create DM space
+
+forms:
+  get: true                # [safe]
+  create: false            # [low]
+  responses:
+    list: true             # [safe]
+    get: true              # [safe]
+
+appscript:
+  get: true                # [safe]
+  content: true            # [safe]
+  run: false               # [critical] Execute arbitrary scripts
+  create: false            # [low]
+
+classroom: false           # Entire service disabled
+
+people:
+  me: true                 # [safe]
+  get: true                # [safe]
+  search: true             # [safe]
+  relations: true          # [safe]
+
+groups:
+  list: true               # [safe]
+  members: true            # [safe]
+
+keep:
+  list: true               # [safe]
+  get: true                # [safe]
+  search: true             # [safe]
+  attachment: true         # [safe]
+
+# Top-level CLI aliases (shortcuts that mirror service commands)
+aliases:
+  send: false              # [high] Mirrors gmail send
+  ls: true                 # [safe]
+  search: true             # [safe]
+  open: true               # [safe]
+  download: true           # [safe]
+  upload: true             # [low] Mirrors drive upload
+  login: true              # [safe]
+  logout: false            # [medium] Remove stored token
+  status: true             # [safe]
+  me: true                 # [safe]
+  whoami: true             # [safe]
+
+# Auth commands
+auth:
+  credentials:
+    set: true              # [medium]
+    list: true             # [safe]
+  add: true                # [medium]
+  services: true           # [safe]
+  list: true               # [safe]
+  alias:
+    list: true             # [safe]
+    set: true              # [low]
+    unset: true            # [low]
+  status: true             # [safe]
+  keyring: true            # [medium]
+  remove: false            # [critical] Remove stored token
+  tokens:
+    list: true             # [safe]
+    delete: false          # [critical]
+    export: false          # [critical] Exports secrets
+    import: true           # [medium]
+  manage: true             # [safe] Opens browser
+  service-account:
+    set: true              # [medium]
+    unset: false           # [medium]
+    status: true           # [safe]
+  keep: true               # [medium]
+
+# Utility commands (these keys are recognized but these commands are
+# always included in the binary regardless of their value here).
+config: true               # [safe]
+time: true                 # [safe]

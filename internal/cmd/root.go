@@ -31,7 +31,6 @@ type RootFlags struct {
 	Color          string `help:"Color output: auto|always|never" default:"${color}"`
 	Account        string `help:"Account email for API commands (gmail/calendar/chat/classroom/drive/docs/slides/contacts/tasks/people/sheets/forms/appscript)" aliases:"acct" short:"a"`
 	Client         string `help:"OAuth client name (selects stored credentials + token bucket)" default:"${client}"`
-	AccessToken    string `help:"Use provided access token directly (bypasses stored refresh tokens; token expires in ~1h)" env:"GOG_ACCESS_TOKEN"` //nolint:gosec // CLI/env input, not an embedded secret
 	EnableCommands string `help:"Comma-separated list of enabled top-level commands (restricts CLI)" default:"${enabled_commands}"`
 	JSON           bool   `help:"Output JSON to stdout (best for scripting)" default:"${json}" aliases:"machine" short:"j"`
 	Plain          bool   `help:"Output stable, parseable text to stdout (TSV; no colors)" default:"${plain}" aliases:"tsv" short:"p"`
@@ -43,57 +42,9 @@ type RootFlags struct {
 	Verbose        bool   `help:"Enable verbose logging" short:"v"`
 }
 
-type CLI struct {
-	RootFlags `embed:""`
-
-	Version kong.VersionFlag `help:"Print version and exit"`
-
-	// Action-first desire paths (agent-friendly shortcuts).
-	Send     GmailSendCmd     `cmd:"" name:"send" help:"Send an email (alias for 'gmail send')"`
-	Ls       DriveLsCmd       `cmd:"" name:"ls" aliases:"list" help:"List Drive files (alias for 'drive ls')"`
-	Search   DriveSearchCmd   `cmd:"" name:"search" aliases:"find" help:"Search Drive files (alias for 'drive search')"`
-	Open     OpenCmd          `cmd:"" name:"open" aliases:"browse" help:"Print a best-effort web URL for a Google URL/ID (offline)"`
-	Download DriveDownloadCmd `cmd:"" name:"download" aliases:"dl" help:"Download a Drive file (alias for 'drive download')"`
-	Upload   DriveUploadCmd   `cmd:"" name:"upload" aliases:"up,put" help:"Upload a file to Drive (alias for 'drive upload')"`
-	Login    AuthAddCmd       `cmd:"" name:"login" help:"Authorize and store a refresh token (alias for 'auth add')"`
-	Logout   AuthRemoveCmd    `cmd:"" name:"logout" help:"Remove a stored refresh token (alias for 'auth remove')"`
-	Status   AuthStatusCmd    `cmd:"" name:"status" aliases:"st" help:"Show auth/config status (alias for 'auth status')"`
-	Me       PeopleMeCmd      `cmd:"" name:"me" help:"Show your profile (alias for 'people me')"`
-	Whoami   PeopleMeCmd      `cmd:"" name:"whoami" aliases:"who-am-i" help:"Show your profile (alias for 'people me')"`
-
-	Auth       AuthCmd               `cmd:"" help:"Auth and credentials"`
-	Groups     GroupsCmd             `cmd:"" aliases:"group" help:"Google Groups"`
-	Admin      AdminCmd              `cmd:"" help:"Google Workspace Admin (Directory API) - requires domain-wide delegation"`
-	Drive      DriveCmd              `cmd:"" aliases:"drv" help:"Google Drive"`
-	Docs       DocsCmd               `cmd:"" aliases:"doc" help:"Google Docs (export via Drive)"`
-	Slides     SlidesCmd             `cmd:"" aliases:"slide" help:"Google Slides"`
-	Calendar   CalendarCmd           `cmd:"" aliases:"cal" help:"Google Calendar"`
-	Classroom  ClassroomCmd          `cmd:"" aliases:"class" help:"Google Classroom"`
-	Time       TimeCmd               `cmd:"" help:"Local time utilities"`
-	Gmail      GmailCmd              `cmd:"" aliases:"mail,email" help:"Gmail"`
-	Chat       ChatCmd               `cmd:"" help:"Google Chat"`
-	Contacts   ContactsCmd           `cmd:"" aliases:"contact" help:"Google Contacts"`
-	Tasks      TasksCmd              `cmd:"" aliases:"task" help:"Google Tasks"`
-	People     PeopleCmd             `cmd:"" aliases:"person" help:"Google People"`
-	Keep       KeepCmd               `cmd:"" help:"Google Keep (Workspace only)"`
-	Sheets     SheetsCmd             `cmd:"" aliases:"sheet" help:"Google Sheets"`
-	Forms      FormsCmd              `cmd:"" aliases:"form" help:"Google Forms"`
-	AppScript  AppScriptCmd          `cmd:"" name:"appscript" aliases:"script,apps-script" help:"Google Apps Script"`
-	Config     ConfigCmd             `cmd:"" help:"Manage configuration"`
-	ExitCodes  AgentExitCodesCmd     `cmd:"" name:"exit-codes" aliases:"exitcodes" help:"Print stable exit codes (alias for 'agent exit-codes')"`
-	Agent      AgentCmd              `cmd:"" help:"Agent-friendly helpers"`
-	Schema     SchemaCmd             `cmd:"" help:"Machine-readable command/flag schema" aliases:"help-json,helpjson"`
-	VersionCmd VersionCmd            `cmd:"" name:"version" help:"Print version"`
-	Completion CompletionCmd         `cmd:"" help:"Generate shell completion scripts"`
-	Complete   CompletionInternalCmd `cmd:"" name:"__complete" hidden:"" help:"Internal completion helper"`
-}
-
 type exitPanic struct{ code int }
 
 func Execute(args []string) (err error) {
-	if len(args) == 0 {
-		args = []string{"--help"}
-	}
 	args = rewriteDesirePathArgs(args)
 
 	parser, cli, err := newParser(helpDescription())
@@ -153,7 +104,6 @@ func Execute(args []string) (err error) {
 		Select:      splitCommaList(cli.Select),
 	})
 	ctx = authclient.WithClient(ctx, cli.Client)
-	ctx = authclient.WithAccessToken(ctx, directAccessToken(&cli.RootFlags))
 
 	uiColor := cli.Color
 	if outfmt.IsJSON(ctx) || outfmt.IsPlain(ctx) {
