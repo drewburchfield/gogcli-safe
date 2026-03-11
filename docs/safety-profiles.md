@@ -64,3 +64,33 @@ The `_types.go` files are the source of truth for command struct definitions. Th
 ### Why the Split?
 
 Go build tags require mutual exclusion at the file level. The stock build uses the `_types.go` definitions (with `!safety_profile` tag), and the safety build uses the generated `_cmd_gen.go` replacements (with `safety_profile` tag). Both define the same struct name, so only one can be active per build.
+
+## Maintenance: `--verify` and `--sync`
+
+Two modes help keep types files in sync as commands evolve:
+
+### `--verify` (CI integration)
+
+```bash
+go run ./cmd/gen-safety --verify
+```
+
+Checks that every CLI-level service type has a corresponding `*_types.go` file and that no struct is duplicated across types and source files. Exits non-zero if problems are found. Intended for CI pipelines to catch drift automatically.
+
+### `--sync` (migration tool)
+
+```bash
+go run ./cmd/gen-safety --sync
+```
+
+When a new top-level service is added (e.g., `AdminCmd` in `admin.go`), `--sync` detects it and generates the corresponding `admin_types.go` file with the `//go:build !safety_profile` tag. If a types file already exists, `--sync` skips it to avoid overwriting manual edits. After running `--sync`, remove the struct definition from the original source file and add the new command keys to each YAML profile.
+
+### Typical workflow after merging upstream
+
+1. `git merge upstream/main` and resolve conflicts with `--theirs`
+2. `go run ./cmd/gen-safety --verify` to see what needs attention
+3. For each DUPLICATE: remove the struct definition from the source file (the types file is the source of truth; update it manually if upstream added new fields)
+4. For each MISSING: `go run ./cmd/gen-safety --sync` to generate the types file, then remove the struct from the source file
+5. `go build ./cmd/gog/` to verify stock build
+6. Add new YAML keys to profiles in `safety-profiles/`
+7. `./build-safe.sh safety-profiles/full.yaml` to verify safety build
