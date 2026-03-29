@@ -30,6 +30,15 @@ Three presets are included: `full.yaml` (everything), `readonly.yaml` (no writes
 
 See the [Safety Profiles](#safety-profiles-compile-time) section below for full details, or the [upstream PR](https://github.com/steipete/gogcli/pull/366) for design rationale.
 
+### Install
+
+```bash
+brew install drewburchfield/tap/gog-safe
+gog-safe auth add    # separate credentials from stock gog
+```
+
+The homebrew formula builds the `agent-safe` profile. For a custom profile, build from source with `./build-safe.sh`.
+
 ---
 
 Fast, script-friendly CLI for Gmail, Calendar, Chat, Classroom, Drive, Docs, Slides, Sheets, Forms, Apps Script, Contacts, Tasks, People, Admin, Groups (Workspace), and Keep (Workspace-only). JSON-first output, multiple accounts, and flexible auth built in.
