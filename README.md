@@ -604,7 +604,7 @@ gog --enable-commands="" gmail send ...
 unset GOG_ENABLE_COMMANDS && gog gmail send ...
 ```
 
-Most agent frameworks (Claude Code, OpenClaw, Cursor, etc.) do not inspect the content of individual shell commands at the policy level, and those that support it (like Claude Code's PreToolUse hooks) rely on pattern matching that can be circumvented with creative quoting or indirection. They can allow or deny the shell/exec tool entirely, but reliably blocking specific subcommands within an allowed tool is brittle. This means that if an agent has shell access at all, runtime flags are the only thing standing between it and destructive commands, and those flags are bypassable.
+Most agent frameworks (Claude Code, OpenClaw, Codex, etc.) do not inspect the content of individual shell commands at the policy level. Those that support it (like Claude Code's PreToolUse hooks) rely on pattern matching that can be circumvented with creative quoting or indirection. They can allow or deny the shell/exec tool entirely, but reliably blocking specific subcommands within an allowed tool is brittle. If an agent has shell access at all, runtime flags are the only thing standing between it and destructive commands, and those flags are bypassable.
 
 Compile-time removal closes this gap. The binary physically lacks the command. There is no sequence of arguments, environment variables, or config changes that can invoke it.
 

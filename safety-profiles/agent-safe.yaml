@@ -20,6 +20,7 @@ gmail:
     list: true
     get: true
     create: true             # Create labels for triage
+    rename: false
     modify: true             # Apply/remove labels
     delete: false
   batch:
@@ -30,6 +31,7 @@ gmail:
   unread: true
   trash: false
   send: false
+  autoreply: false
   track: false
   drafts:
     list: true
@@ -49,7 +51,9 @@ gmail:
 
 calendar:
   calendars: true
+  subscribe: false
   acl: true
+  alias: true
   events: true
   event: true
   create: true               # Create events (drafts equivalent)
@@ -148,15 +152,28 @@ sheets:
   get: true
   metadata: true
   notes: true
+  update-note: false
   links: true
+  named-ranges: false
+  read-format: true
   export: true
   update: false
   append: false
   insert: false
   clear: false
   format: false
+  merge: false
+  unmerge: false
+  number-format: false
+  freeze: false
+  resize-columns: false
+  resize-rows: false
+  find-replace: false
   create: false
   copy: false
+  add-tab: false
+  rename-tab: false
+  delete-tab: false
 
 slides:
   export: true
@@ -165,6 +182,7 @@ slides:
   read-slide: true
   create: false
   create-from-markdown: false
+  create-from-template: false
   copy: false
   add-slide: false
   delete-slide: false
@@ -179,6 +197,8 @@ chat:
   messages:
     list: true
     send: false
+    react: false
+    reactions: false
   threads:
     list: true
   dm:
@@ -188,9 +208,14 @@ chat:
 forms:
   get: true
   create: false
+  update: false
+  add-question: false
+  delete-question: false
+  move-question: false
   responses:
     list: true
     get: true
+  watch: false
 
 appscript:
   get: true
@@ -210,10 +235,14 @@ groups:
   list: true
   members: true
 
+admin: false
+
 keep:
   list: true
   get: true
   search: true
+  create: false
+  delete: false
   attachment: true
 
 aliases:

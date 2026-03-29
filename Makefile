@@ -4,7 +4,7 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := build
 
 .PHONY: build gog gogcli gog-help gogcli-help help fmt fmt-check lint test ci tools
-.PHONY: worker-ci build-safe build-profile clean-gen
+.PHONY: worker-ci build-safe clean-gen
 
 BIN_DIR := $(CURDIR)/bin
 BIN := $(BIN_DIR)/gog
@@ -102,10 +102,7 @@ SAFE_BIN := $(BIN_DIR)/gog-safe
 PROFILE ?= safety-profile.example.yaml
 
 build-safe:
-	@./build-safe.sh $(PROFILE)
-
-build-profile:
-	@./build-safe.sh $(PROFILE) -o $(SAFE_BIN)
+	@./build-safe.sh "$(PROFILE)" -o "$(SAFE_BIN)"
 
 clean-gen:
 	@rm -f internal/cmd/*_cmd_gen.go

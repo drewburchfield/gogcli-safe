@@ -1,13 +1,16 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestIsEnabled(t *testing.T) {
 	warnings = nil
-	defer func() { warnings = nil }()
+	warningSet = map[string]bool{}
+	defer func() { warnings = nil; warningSet = map[string]bool{} }()
 
 	config := map[string]any{
 		"send":   true,
@@ -33,21 +36,22 @@ func TestIsEnabled(t *testing.T) {
 		{"missing", false},  // fail-closed: not in config
 	}
 	for _, tt := range tests {
-		got := isEnabled(config, tt.key)
+		got := isEnabledCtx(config, tt.key, "")
 		if got != tt.want {
 			t.Errorf("isEnabled(config, %q) = %v, want %v", tt.key, got, tt.want)
 		}
 	}
 
 	// nil config = fail-closed
-	if isEnabled(nil, "anything") {
-		t.Error("isEnabled(nil, ...) should return false")
+	if isEnabledCtx(nil, "anything", "") {
+		t.Error("isEnabledCtx(nil, ...) should return false")
 	}
 }
 
 func TestFilterFields(t *testing.T) {
 	warnings = nil
-	defer func() { warnings = nil }()
+	warningSet = map[string]bool{}
+	defer func() { warnings = nil; warningSet = map[string]bool{} }()
 
 	fields := []field{
 		{GoName: "Send", YAMLKey: "send"},
@@ -60,13 +64,13 @@ func TestFilterFields(t *testing.T) {
 		// "delete" absent = fail-closed (excluded)
 	}
 
-	got := filterFields(fields, config)
+	got := filterFields(fields, config, "test")
 	if len(got) != 1 || got[0].GoName != "Search" {
 		t.Errorf("filterFields: got %v, want [Search]", got)
 	}
 
 	// nil config = fail-closed (all excluded)
-	got = filterFields(fields, nil)
+	got = filterFields(fields, nil, "test")
 	if len(got) != 0 {
 		t.Errorf("filterFields(nil): got %d fields, want 0", len(got))
 	}
@@ -86,11 +90,11 @@ func TestIsServiceDisabled(t *testing.T) {
 		key  string
 		want bool // true = disabled
 	}{
-		{"classroom", true},    // explicitly false
-		{"calendar", false},    // explicitly true
-		{"gmail", false},       // map (not disabled)
+		{"classroom", true},     // explicitly false
+		{"calendar", false},     // explicitly true
+		{"gmail", false},        // map (not disabled)
 		{"gmail.thread", false}, // nested map
-		{"nonexistent", true},  // missing = disabled (fail-closed)
+		{"nonexistent", true},   // missing = disabled (fail-closed)
 	}
 	for _, tt := range tests {
 		got := isServiceDisabled(profile, tt.key)
@@ -129,7 +133,8 @@ func TestResolveEnabledFields_NestedBoolShorthand(t *testing.T) {
 
 func TestValidateYAMLKeys(t *testing.T) {
 	warnings = nil
-	defer func() { warnings = nil }()
+	warningSet = map[string]bool{}
+	defer func() { warnings = nil; warningSet = map[string]bool{} }()
 
 	known := map[string]bool{
 		"gmail":        true,
@@ -220,5 +225,130 @@ func TestMapHasEnabledLeaf(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("mapHasEnabledLeaf(%s) = %v, want %v", tt.name, got, tt.want)
 		}
+	}
+}
+
+// TestGeneratedOutputExcludesDisabledCommands verifies that disabled commands
+// are physically absent from generated service files, not just not compiled.
+func TestGeneratedOutputExcludesDisabledCommands(t *testing.T) {
+	warnings = nil
+	warningSet = map[string]bool{}
+	defer func() { warnings = nil; warningSet = map[string]bool{} }()
+
+	spec := serviceSpec{
+		StructName: "GmailCmd",
+		File:       "test_gmail_cmd_gen.go",
+		Fields: []field{
+			{GoName: "Search", GoType: "GmailSearchCmd", Tag: "`cmd:\"\" name:\"search\"`", YAMLKey: "search"},
+			{GoName: "Send", GoType: "GmailSendCmd", Tag: "`cmd:\"\" name:\"send\"`", YAMLKey: "send"},
+			{GoName: "Drafts", GoType: "GmailDraftsCmd", Tag: "`cmd:\"\" name:\"drafts\"`", YAMLKey: "drafts"},
+		},
+	}
+
+	profile := map[string]any{
+		"gmail": map[string]any{
+			"search": true,
+			"send":   false,
+			"drafts": true,
+		},
+	}
+
+	tmpDir := t.TempDir()
+	svcConfig := resolveDottedSection(profile, "gmail")
+	enabled := resolveEnabledFields(spec.Fields, svcConfig, profile, "gmail")
+	if err := writeServiceFileFromFields(tmpDir, spec, enabled); err != nil {
+		t.Fatalf("writeServiceFileFromFields: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(tmpDir, spec.File))
+	if err != nil {
+		t.Fatalf("reading generated file: %v", err)
+	}
+	src := string(content)
+
+	// Search and Drafts should be present
+	if !strings.Contains(src, "GmailSearchCmd") {
+		t.Error("expected GmailSearchCmd in generated output (search: true)")
+	}
+	if !strings.Contains(src, "GmailDraftsCmd") {
+		t.Error("expected GmailDraftsCmd in generated output (drafts: true)")
+	}
+
+	// Send should be ABSENT
+	if strings.Contains(src, "GmailSendCmd") {
+		t.Error("GmailSendCmd should NOT be in generated output (send: false)")
+	}
+}
+
+// TestGeneratedCLIFileExcludesDisabledAliases verifies that disabled aliases
+// (like Send) are absent from the generated CLI struct.
+func TestGeneratedCLIFileExcludesDisabledAliases(t *testing.T) {
+	warnings = nil
+	warningSet = map[string]bool{}
+	defer func() { warnings = nil; warningSet = map[string]bool{} }()
+
+	aliases := []field{
+		{GoName: "Send", GoType: "GmailSendCmd", Tag: "`cmd:\"\" name:\"send\"`", YAMLKey: "send"},
+		{GoName: "Ls", GoType: "DriveLsCmd", Tag: "`cmd:\"\" name:\"ls\"`", YAMLKey: "ls"},
+	}
+	services := []field{
+		{GoName: "Gmail", GoType: "GmailCmd", Tag: "`cmd:\"\" help:\"Gmail\"`", YAMLKey: "gmail"},
+		{GoName: "Config", GoType: "ConfigCmd", Tag: "`cmd:\"\" help:\"Config\"`", YAMLKey: ""},
+	}
+
+	profile := map[string]any{
+		"aliases": map[string]any{
+			"send": false,
+			"ls":   true,
+		},
+		"gmail": map[string]any{
+			"search": true,
+		},
+	}
+
+	tmpDir := t.TempDir()
+	if err := generateCLIFile(tmpDir, profile, aliases, services); err != nil {
+		t.Fatalf("generateCLIFile: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(tmpDir, "cli_cmd_gen.go"))
+	if err != nil {
+		t.Fatalf("reading generated file: %v", err)
+	}
+	src := string(content)
+
+	// Ls alias should be present
+	if !strings.Contains(src, "DriveLsCmd") {
+		t.Error("expected DriveLsCmd in generated output (aliases.ls: true)")
+	}
+
+	// Send alias should be ABSENT
+	if strings.Contains(src, "GmailSendCmd") {
+		t.Error("GmailSendCmd should NOT be in generated CLI output (aliases.send: false)")
+	}
+
+	// Gmail service should be present (has enabled leaf)
+	if !strings.Contains(src, "GmailCmd") {
+		t.Error("expected GmailCmd in generated output (gmail has enabled commands)")
+	}
+
+	// Config (utility, no YAMLKey) should always be included
+	if !strings.Contains(src, "ConfigCmd") {
+		t.Error("expected ConfigCmd in generated output (utility command always included)")
+	}
+}
+
+// TestWarningDeduplication verifies that identical warnings are not repeated.
+func TestWarningDeduplication(t *testing.T) {
+	warnings = nil
+	warningSet = map[string]bool{}
+	defer func() { warnings = nil; warningSet = map[string]bool{} }()
+
+	warn("key %q not in profile", "send")
+	warn("key %q not in profile", "send")   // duplicate
+	warn("key %q not in profile", "delete") // different
+
+	if len(warnings) != 2 {
+		t.Errorf("expected 2 deduplicated warnings, got %d: %v", len(warnings), warnings)
 	}
 }
