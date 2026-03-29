@@ -11,10 +11,13 @@
 //	go run ./cmd/gen-safety --strict safety-profiles/agent-safe.yaml
 //	go run ./cmd/gen-safety --verify          # check types files are in sync
 //	go run ./cmd/gen-safety --sync            # extract structs to types files
+//	go run ./cmd/gen-safety --update-profiles # add missing keys to YAML profiles
+//	go run ./cmd/gen-safety --update-profiles --dry-run  # preview without writing
 package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"go/format"
 	"os"
@@ -60,15 +63,20 @@ func warn(msg string, args ...any) {
 func main() {
 	profilePath := "safety-profile.example.yaml"
 	strict := false
+	dryRun := false
 	mode := "generate" // default mode
 	for _, arg := range os.Args[1:] {
 		switch arg {
 		case "--strict":
 			strict = true
+		case "--dry-run":
+			dryRun = true
 		case "--verify":
 			mode = "verify"
 		case "--sync":
 			mode = "sync"
+		case "--update-profiles":
+			mode = "update-profiles"
 		default:
 			if strings.HasPrefix(arg, "-") {
 				fatal("unknown flag: %s", arg)
@@ -79,8 +87,13 @@ func main() {
 
 	outputDir := "internal/cmd"
 
-	// Handle --verify and --sync before profile-based generation.
-	if mode == "verify" || mode == "sync" {
+	// --dry-run is only valid with --update-profiles.
+	if dryRun && mode != "update-profiles" {
+		fatal("--dry-run can only be used with --update-profiles")
+	}
+
+	// Handle --verify, --sync, and --update-profiles before profile-based generation.
+	if mode == "verify" || mode == "sync" || mode == "update-profiles" {
 		if profilePath != "safety-profile.example.yaml" {
 			fatal("--%s does not accept a profile path", mode)
 		}
@@ -108,6 +121,26 @@ func main() {
 	if mode == "sync" {
 		if err := syncTypes(outputDir); err != nil {
 			fatal("sync: %v", err)
+		}
+		return
+	}
+
+	if mode == "update-profiles" {
+		profiles, err := filepath.Glob("safety-profiles/*.yaml")
+		if err != nil {
+			fatal("finding profiles: %v", err)
+		}
+		// Also include the example profile if it exists.
+		if _, err := os.Stat("safety-profile.example.yaml"); err == nil {
+			profiles = append(profiles, "safety-profile.example.yaml")
+		} else if !errors.Is(err, os.ErrNotExist) {
+			fatal("checking example profile: %v", err)
+		}
+		if len(profiles) == 0 {
+			fatal("no profiles found in safety-profiles/")
+		}
+		if err := updateProfiles(outputDir, profiles, dryRun); err != nil {
+			fatal("update-profiles: %v", err)
 		}
 		return
 	}

@@ -65,9 +65,9 @@ The `_types.go` files are the source of truth for command struct definitions. Th
 
 Go build tags require mutual exclusion at the file level. The stock build uses the `_types.go` definitions (with `!safety_profile` tag), and the safety build uses the generated `_cmd_gen.go` replacements (with `safety_profile` tag). Both define the same struct name, so only one can be active per build.
 
-## Maintenance: `--verify` and `--sync`
+## Maintenance: `--verify`, `--sync`, and `--update-profiles`
 
-Two modes help keep types files in sync as commands evolve:
+Three modes help keep types files and YAML profiles in sync as commands evolve:
 
 ### `--verify` (CI integration)
 
@@ -85,6 +85,15 @@ go run ./cmd/gen-safety --sync
 
 When a new top-level service is added (e.g., `AdminCmd` in `admin.go`), `--sync` detects it and generates the corresponding `admin_types.go` file with the `//go:build !safety_profile` tag. If a types file already exists, `--sync` skips it to avoid overwriting manual edits. After running `--sync`, remove the struct definition from the original source file and add the new command keys to each YAML profile.
 
+### `--update-profiles` (YAML profile maintenance)
+
+```bash
+go run ./cmd/gen-safety --update-profiles            # add missing keys
+go run ./cmd/gen-safety --update-profiles --dry-run  # preview without writing
+```
+
+Scans all YAML profiles in `safety-profiles/` (plus `safety-profile.example.yaml` if present) for missing command keys and adds them with sensible defaults: `true` for `full.yaml`, `false` for all others. Preserves existing formatting, comments, and indentation. New keys are tagged with `# NEW` so they are easy to find and review. Bool shorthand sections (e.g., `classroom: false`) are left untouched.
+
 ### Typical workflow after merging upstream
 
 1. `git merge upstream/main` and resolve conflicts (accept upstream for source files; review `*_types.go` conflicts manually since those are the safety profile source of truth)
@@ -92,5 +101,6 @@ When a new top-level service is added (e.g., `AdminCmd` in `admin.go`), `--sync`
 3. For each DUPLICATE: remove the struct definition from the source file (the types file is the source of truth; update it manually if upstream added new fields)
 4. For each MISSING: `go run ./cmd/gen-safety --sync` to generate the types file, then remove the struct from the source file
 5. `go build ./cmd/gog/` to verify stock build
-6. Add new YAML keys to profiles in `safety-profiles/`
-7. `./build-safe.sh safety-profiles/full.yaml` to verify safety build
+6. `go run ./cmd/gen-safety --update-profiles` to add missing YAML keys (defaults: `true` for full.yaml, `false` for others). Use `--dry-run` to preview.
+7. Review the added keys and adjust defaults for agent-safe.yaml as needed
+8. `./build-safe.sh safety-profiles/full.yaml` to verify safety build
