@@ -20,7 +20,7 @@ gmail:
     list: true
     get: true
     create: true             # Create labels for triage
-    rename: false
+    rename: true             # Rename labels for organization
     modify: true             # Apply/remove labels
     delete: false
   batch:
@@ -171,9 +171,9 @@ sheets:
   find-replace: false
   create: false
   copy: false
-  add-tab: false
-  rename-tab: false
-  delete-tab: false
+  add-tab: true             # Low risk, recoverable via version history
+  rename-tab: true          # Low risk, recoverable
+  delete-tab: true          # Recoverable via version history
 
 slides:
   export: true
@@ -197,7 +197,7 @@ chat:
   messages:
     list: true
     send: false
-    react: false
+    react: true              # Add emoji reactions (harmless)
     reactions: false
   threads:
     list: true
@@ -211,7 +211,7 @@ forms:
   update: false
   add-question: false
   delete-question: false
-  move-question: false
+  move-question: true       # Reorder questions (non-destructive)
   responses:
     list: true
     get: true
@@ -241,7 +241,7 @@ keep:
   list: true
   get: true
   search: true
-  create: false
+  create: true              # Creating notes is low risk
   delete: false
   attachment: true
 
