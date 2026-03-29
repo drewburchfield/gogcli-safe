@@ -44,7 +44,7 @@ Commands not listed in the YAML are excluded by default. The `--strict` flag (us
 
 ## Utility Commands (Always Included)
 
-A small set of infrastructure commands (`config`, `time`, `version`, `schema`, `agent`, `agent-exit-codes`, `completion`) are always included in every safety-profiled build. These commands cannot access or modify user data, so they bypass YAML filtering. Their keys are tolerated in YAML profiles to avoid "unrecognized key" warnings, but their values have no effect.
+A small set of infrastructure commands (`config`, `time`, `version`, `schema`, `agent`, `agent-exit-codes`, `completion`) are always included in every safety-profiled build. These commands manage local CLI configuration and metadata rather than Google Workspace data, so they bypass YAML filtering. Note that `config set` can modify local settings; if this is a concern for your threat model, restrict filesystem write access at the agent framework level. Their keys are tolerated in YAML profiles to avoid "unrecognized key" warnings, but their values have no effect.
 
 The list is defined in the `utilityTypes` map in `cmd/gen-safety/discover.go`. If a new utility command type is added upstream, it must be added there.
 
@@ -87,7 +87,7 @@ When a new top-level service is added (e.g., `AdminCmd` in `admin.go`), `--sync`
 
 ### Typical workflow after merging upstream
 
-1. `git merge upstream/main` and resolve conflicts with `--theirs`
+1. `git merge upstream/main` and resolve conflicts (accept upstream for source files; review `*_types.go` conflicts manually since those are the safety profile source of truth)
 2. `go run ./cmd/gen-safety --verify` to see what needs attention
 3. For each DUPLICATE: remove the struct definition from the source file (the types file is the source of truth; update it manually if upstream added new fields)
 4. For each MISSING: `go run ./cmd/gen-safety --sync` to generate the types file, then remove the struct from the source file

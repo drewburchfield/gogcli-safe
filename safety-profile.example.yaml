@@ -37,6 +37,7 @@ gmail:
     list: true             # [safe]
     get: true              # [safe]
     create: true           # [low] Create new labels
+    rename: false          # [medium] Rename a label
     modify: true           # [low] Apply/remove labels on messages
     delete: false          # [critical] Delete a label
 
@@ -51,6 +52,7 @@ gmail:
 
   # Write commands
   send: false              # [high] Send email
+  autoreply: false         # [high] Auto-reply to matching messages
   track: false             # [medium] Email open tracking
 
   drafts:
@@ -75,7 +77,9 @@ gmail:
 
 calendar:
   calendars: true          # [safe]
+  subscribe: false         # [medium] Add calendar to list
   acl: true                # [safe]
+  alias: true              # [safe] Manage calendar aliases
   events: true             # [safe]
   event: true              # [safe]
   create: true             # [low] Create events
@@ -174,15 +178,28 @@ sheets:
   get: true                # [safe]
   metadata: true           # [safe]
   notes: true              # [safe]
+  update-note: false       # [medium] Set/clear cell notes
   links: true              # [safe]
+  named-ranges: false      # [medium] Manage named ranges
+  read-format: true        # [safe] Read cell formatting
   export: true             # [safe]
   update: false            # [medium]
   append: false            # [medium]
   insert: false            # [medium]
   clear: false             # [medium]
   format: false            # [medium]
+  merge: false             # [medium] Merge cells
+  unmerge: false           # [medium] Unmerge cells
+  number-format: false     # [medium] Apply number format
+  freeze: false            # [medium] Freeze rows/columns
+  resize-columns: false    # [medium] Resize columns
+  resize-rows: false       # [medium] Resize rows
+  find-replace: false      # [medium] Find and replace text
   create: false            # [low]
   copy: false              # [low]
+  add-tab: false           # [low] Add tab/sheet
+  rename-tab: false        # [medium] Rename tab/sheet
+  delete-tab: false        # [critical] Delete tab/sheet
 
 slides:
   export: true             # [safe]
@@ -191,6 +208,7 @@ slides:
   read-slide: true         # [safe]
   create: false            # [low]
   create-from-markdown: false # [low]
+  create-from-template: false # [low] Create from template
   copy: false              # [low]
   add-slide: false         # [medium]
   delete-slide: false      # [medium]
@@ -205,6 +223,8 @@ chat:
   messages:
     list: true             # [safe]
     send: false            # [high] Send chat message
+    react: false           # [low] Add emoji reaction
+    reactions: false       # [low] Manage emoji reactions
   threads:
     list: true             # [safe]
   dm:
@@ -214,9 +234,14 @@ chat:
 forms:
   get: true                # [safe]
   create: false            # [low]
+  update: false            # [medium] Update form settings
+  add-question: false      # [medium] Add question to form
+  delete-question: false   # [medium] Delete question from form
+  move-question: false     # [low] Reorder questions
   responses:
     list: true             # [safe]
     get: true              # [safe]
+  watch: false             # [medium] Response push notifications
 
 appscript:
   get: true                # [safe]
@@ -236,10 +261,14 @@ groups:
   list: true               # [safe]
   members: true            # [safe]
 
+admin: false               # [critical] Workspace admin (users/groups management)
+
 keep:
   list: true               # [safe]
   get: true                # [safe]
   search: true             # [safe]
+  create: false            # [low] Create a note
+  delete: false            # [critical] Delete a note
   attachment: true         # [safe]
 
 # Top-level CLI aliases (shortcuts that mirror service commands)

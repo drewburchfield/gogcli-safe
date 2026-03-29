@@ -8,8 +8,6 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-// DocsCommentsCmd is the parent command for comment operations on a Google Doc.
-
 // DocsCommentsListCmd lists comments on a Google Doc.
 type DocsCommentsListCmd struct {
 	DocID           string `arg:"" name:"docId" help:"Google Doc ID or URL"`

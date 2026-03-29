@@ -105,10 +105,7 @@ SAFE_BIN := $(BIN_DIR)/gog-safe
 PROFILE ?= safety-profile.example.yaml
 
 build-safe:
-	@./build-safe.sh $(PROFILE)
-
-build-profile:
-	@./build-safe.sh $(PROFILE) -o $(SAFE_BIN)
+	@./build-safe.sh "$(PROFILE)" -o "$(SAFE_BIN)"
 
 clean-gen:
 	@rm -f internal/cmd/*_cmd_gen.go

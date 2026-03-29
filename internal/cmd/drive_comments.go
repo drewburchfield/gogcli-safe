@@ -8,8 +8,6 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-// DriveCommentsCmd is the parent command for comments subcommands
-
 type DriveCommentsListCmd struct {
 	FileID        string `arg:"" name:"fileId" help:"File ID"`
 	Max           int64  `name:"max" aliases:"limit" help:"Max results" default:"100"`

@@ -46,9 +46,14 @@ type serviceSpec struct {
 // warnings accumulates non-fatal issues found during generation.
 // All warnings are printed at the end; with --strict they become fatal.
 var warnings []string
+var warningSet = map[string]bool{}
 
 func warn(msg string, args ...any) {
 	w := fmt.Sprintf(msg, args...)
+	if warningSet[w] {
+		return // deduplicate
+	}
+	warningSet[w] = true
 	warnings = append(warnings, w)
 }
 
@@ -137,9 +142,54 @@ func main() {
 	knownKeys := buildKnownKeys(specs, aliases, services)
 	validateYAMLKeys(profile, knownKeys, "")
 
+	// Pre-compute enabled fields for each spec (this populates warnings).
+	type specResult struct {
+		spec          serviceSpec
+		disabled      bool
+		enabledFields []field
+		disabledCount int
+	}
+	results := make([]specResult, 0, len(specs))
 	for _, spec := range specs {
-		if err := generateServiceFile(outputDir, spec, profile); err != nil {
-			fatal("generating %s: %v", spec.File, err)
+		if isServiceDisabled(profile, spec.YAMLKey) {
+			results = append(results, specResult{spec: spec, disabled: true})
+			continue
+		}
+		svcConfig := resolveDottedSection(profile, spec.YAMLKey)
+		enabled := resolveEnabledFields(spec.Fields, svcConfig, profile, spec.YAMLKey)
+		results = append(results, specResult{
+			spec:          spec,
+			enabledFields: enabled,
+			disabledCount: len(spec.Fields) - len(enabled),
+		})
+	}
+
+	// Also pre-validate CLI aliases (populates warnings for missing alias keys).
+	aliasConfig := resolveDottedSection(profile, "aliases")
+	for _, f := range aliases {
+		isEnabledCtx(aliasConfig, f.YAMLKey, "aliases")
+	}
+
+	// Check warnings BEFORE writing any files. With --strict, abort early
+	// so no stale generated files are left on disk.
+	if strict && len(warnings) > 0 {
+		fmt.Fprintf(os.Stderr, "\ngen-safety: %d warning(s):\n", len(warnings))
+		for _, w := range warnings {
+			fmt.Fprintf(os.Stderr, "  - %s\n", w)
+		}
+		fatal("aborting due to warnings (remove --strict to allow)")
+	}
+
+	// All validation passed. Write generated files.
+	for _, r := range results {
+		if r.disabled {
+			if err := writeGenFile(outputDir, r.spec.File, buildEmptyStruct(r.spec)); err != nil {
+				fatal("generating %s: %v", r.spec.File, err)
+			}
+			continue
+		}
+		if err := writeServiceFileFromFields(outputDir, r.spec, r.enabledFields); err != nil {
+			fatal("generating %s: %v", r.spec.File, err)
 		}
 	}
 
@@ -149,43 +199,26 @@ func main() {
 
 	fmt.Printf("Generated %d files in %s/\n", len(specs)+1, outputDir)
 
-	// Print build summary so users can verify their profile
+	// Print build summary so users can verify their profile.
 	fmt.Printf("\nSafety profile summary:\n")
-	for _, spec := range specs {
-		if isServiceDisabled(profile, spec.YAMLKey) {
-			fmt.Printf("  %-20s DISABLED (entire service)\n", spec.YAMLKey)
+	for _, r := range results {
+		if r.disabled {
+			fmt.Printf("  %-20s DISABLED (entire service)\n", r.spec.YAMLKey)
 			continue
 		}
-		svcConfig := resolveDottedSection(profile, spec.YAMLKey)
-		enabled := resolveEnabledFields(spec.Fields, svcConfig, profile, spec.YAMLKey)
-		disabled := len(spec.Fields) - len(enabled)
-		fmt.Printf("  %-20s %d enabled, %d disabled\n", spec.YAMLKey, len(enabled), disabled)
+		fmt.Printf("  %-20s %d enabled, %d disabled\n", r.spec.YAMLKey, len(r.enabledFields), r.disabledCount)
 	}
 
-	// Print consolidated warnings
+	// Print warnings (non-strict mode only reaches here).
 	if len(warnings) > 0 {
 		fmt.Fprintf(os.Stderr, "\ngen-safety: %d warning(s):\n", len(warnings))
 		for _, w := range warnings {
 			fmt.Fprintf(os.Stderr, "  - %s\n", w)
 		}
-		if strict {
-			fatal("aborting due to warnings (remove --strict to allow)")
-		}
 	}
 }
 
-func generateServiceFile(dir string, spec serviceSpec, profile map[string]any) error {
-	svcConfig := resolveDottedSection(profile, spec.YAMLKey)
-
-	// If the entire service is disabled (set to false at the top level), generate an empty struct
-	if isServiceDisabled(profile, spec.YAMLKey) {
-		return writeGenFile(dir, spec.File, buildEmptyStruct(spec))
-	}
-
-	// If service is set to `true` (bool shorthand), include ALL fields.
-	// resolveDottedSection returns nil for bools, so we check explicitly.
-	enabledFields := resolveEnabledFields(spec.Fields, svcConfig, profile, spec.YAMLKey)
-
+func writeServiceFileFromFields(dir string, spec serviceSpec, enabledFields []field) error {
 	var buf bytes.Buffer
 	buf.WriteString(genHeader)
 
@@ -232,7 +265,7 @@ func generateCLIFile(dir string, profile map[string]any, cliAliases []field, cli
 	// Action-first aliases
 	buf.WriteString("\t// Action-first desire paths (agent-friendly shortcuts).\n")
 	for _, f := range cliAliases {
-		if isEnabled(aliasConfig, f.YAMLKey) {
+		if isEnabledCtx(aliasConfig, f.YAMLKey, "aliases") {
 			writeStructField(&buf, f)
 		}
 	}
@@ -289,7 +322,7 @@ func resolveEnabledFields(fields []field, svcConfig map[string]any, profile map[
 		// Bool shorthand: `service: true` means include all fields.
 		return fields
 	}
-	return filterFields(fields, svcConfig)
+	return filterFields(fields, svcConfig, yamlKey)
 }
 
 // isServiceEnabledBool checks if a dotted key resolves to a `true` boolean.
@@ -316,27 +349,31 @@ func isServiceEnabledBool(config map[string]any, key string) bool {
 	return false
 }
 
-func filterFields(fields []field, config map[string]any) []field {
+func filterFields(fields []field, config map[string]any, svcPath string) []field {
 	var out []field
 	for _, f := range fields {
-		if isEnabled(config, f.YAMLKey) {
+		if isEnabledCtx(config, f.YAMLKey, svcPath) {
 			out = append(out, f)
 		}
 	}
 	return out
 }
 
-func isEnabled(config map[string]any, key string) bool {
+func isEnabledCtx(config map[string]any, key string, svcPath string) bool {
+	displayKey := key
+	if svcPath != "" {
+		displayKey = svcPath + "." + key
+	}
 	if config == nil {
 		// Fail-closed: if no config section exists, disable commands.
 		// This prevents new upstream commands from silently appearing in
 		// safety-profiled builds when the YAML doesn't mention them.
-		warn("no config section for key %q, EXCLUDING (fail-closed)", key)
+		warn("key %q not in profile, EXCLUDING (fail-closed)", displayKey)
 		return false
 	}
 	v, ok := config[key]
 	if !ok {
-		warn("key %q not in profile, EXCLUDING (fail-closed)", key)
+		warn("key %q not in profile, EXCLUDING (fail-closed)", displayKey)
 		return false
 	}
 	switch val := v.(type) {
@@ -461,8 +498,8 @@ func isServiceDisabled(config map[string]any, key string) bool {
 		if m, ok := v.(map[string]any); ok {
 			current = m
 		} else {
-			warn("unexpected type %T at key %q in profile, treating as disabled", v, part)
-			return true // unexpected type = disabled (fail-closed)
+			fatal("unexpected type %T at key %q in profile, expected bool or map", v, part)
+			return true // unreachable
 		}
 	}
 	return false
