@@ -356,7 +356,16 @@ func TestEndToEndSafeBuild(t *testing.T) {
 		t.Fatalf("resolving repo root: %v", err)
 	}
 
-	profiles := []string{"full.yaml", "readonly.yaml"}
+	// Clean up generated files after all subtests complete to avoid
+	// leaving side effects in the source tree.
+	t.Cleanup(func() {
+		files, _ := filepath.Glob(filepath.Join(repoRoot, "internal", "cmd", "*_cmd_gen.go"))
+		for _, f := range files {
+			os.Remove(f)
+		}
+	})
+
+	profiles := []string{"full.yaml", "readonly.yaml", "agent-safe.yaml"}
 	for _, profile := range profiles {
 		t.Run(profile, func(t *testing.T) {
 			profilePath := filepath.Join(repoRoot, "safety-profiles", profile)

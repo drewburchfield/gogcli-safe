@@ -9,7 +9,6 @@ import (
 	"strings"
 )
 
-
 func Dir() (string, error) {
 	if xdg := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); xdg != "" {
 		return filepath.Join(xdg, AppName), nil

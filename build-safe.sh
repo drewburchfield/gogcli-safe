@@ -62,8 +62,13 @@ echo "Safety profile: $PROFILE"
 echo "Output binary:  $OUTPUT"
 echo ""
 
+# Clean up generated files on failure or interrupt to prevent stale incorrect builds.
+# EXIT covers ERR, SIGINT, and SIGTERM. We disable the trap after a successful build.
+cleanup_gen() { rm -f internal/cmd/*_cmd_gen.go; }
+trap cleanup_gen EXIT
+
 # Step 1: Clean previous generated files to avoid stale leftovers
-rm -f internal/cmd/*_cmd_gen.go
+cleanup_gen
 
 # Step 2: Generate Go files from the safety profile
 echo "Generating command structs from profile..."
@@ -79,6 +84,9 @@ mkdir -p "$(dirname "$OUTPUT")"
 
 echo "Building with -tags safety_profile..."
 go build -tags safety_profile -ldflags "$LDFLAGS" -o "$OUTPUT" ./cmd/gog/
+
+# Build succeeded; disable cleanup trap so gen files survive for inspection.
+trap - EXIT
 
 echo ""
 echo "Built: $OUTPUT"
