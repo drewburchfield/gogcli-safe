@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -82,6 +83,30 @@ func TestSyncTypesNoop(t *testing.T) {
 		if _, inSource := sourceStructs[f.GoType]; inSource {
 			t.Errorf("CLI service %s (%s) is in source but not types files", f.GoName, f.GoType)
 		}
+	}
+}
+
+// TestUpdateProfilesDryRun verifies that --update-profiles --dry-run
+// reports "up to date" when all profiles have all expected keys.
+func TestUpdateProfilesDryRun(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping end-to-end test in short mode")
+	}
+
+	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatalf("resolving repo root: %v", err)
+	}
+
+	cmd := exec.Command("go", "run", "./cmd/gen-safety", "--update-profiles", "--dry-run")
+	cmd.Dir = repoRoot
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("gen-safety --update-profiles --dry-run failed:\n%s\n%v", out, err)
+	}
+
+	if !strings.Contains(string(out), "up to date") {
+		t.Errorf("expected 'up to date', got:\n%s", out)
 	}
 }
 
