@@ -198,6 +198,8 @@ func TestBuildServiceSpecs(t *testing.T) {
 		{"auth.service-account", "AuthServiceAccountCmd", 2},
 		{"keep", "KeepCmd", 3},
 		{"classroom", "ClassroomCmd", 10},
+		{"sheets.chart", "SheetsChartCmd", 5},
+		{"sheets.named-ranges", "SheetsNamedRangesCmd", 5},
 	}
 
 	for _, e := range expected {

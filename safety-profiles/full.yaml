@@ -155,7 +155,12 @@ sheets:
   notes: true
   update-note: true
   links: true
-  named-ranges: true
+  named-ranges:
+    list: true
+    get: true
+    add: true
+    update: true
+    delete: true
   read-format: true
   export: true
   update: true
@@ -175,7 +180,12 @@ sheets:
   add-tab: true
   rename-tab: true
   delete-tab: true
-  chart: true
+  chart:
+    list: true
+    get: true
+    create: true
+    update: true
+    delete: true
 
 slides:
   export: true

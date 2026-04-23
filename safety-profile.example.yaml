@@ -183,7 +183,12 @@ sheets:
   notes: true              # [safe]
   update-note: false       # [medium] Set/clear cell notes
   links: true              # [safe]
-  named-ranges: false      # [medium] Manage named ranges
+  named-ranges:            # Manage named ranges
+    list: true             # [safe]
+    get: true              # [safe]
+    add: false             # [low] Add a named range
+    update: false          # [low] Update a named range
+    delete: false          # [medium] Delete a named range
   read-format: true        # [safe] Read cell formatting
   export: true             # [safe]
   update: false            # [medium]
@@ -203,7 +208,12 @@ sheets:
   add-tab: false           # [low] Add tab/sheet
   rename-tab: false        # [medium] Rename tab/sheet
   delete-tab: false        # [critical] Delete tab/sheet
-  chart: false             # [low] Manage spreadsheet charts (list/get/create/update/delete)
+  chart:                   # Spreadsheet chart commands
+    list: true             # [safe]
+    get: true              # [safe]
+    create: false          # [low] Add chart; recoverable via revision history
+    update: false          # [low] Edit chart
+    delete: false          # [medium] Delete chart
 
 slides:
   export: true             # [safe]

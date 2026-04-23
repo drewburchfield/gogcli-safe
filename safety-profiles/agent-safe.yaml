@@ -157,7 +157,12 @@ sheets:
   notes: true
   update-note: false
   links: true
-  named-ranges: false
+  named-ranges:
+    list: true               # Read-only metadata
+    get: true                # Read-only metadata
+    add: false               # Adding ranges can affect formula references
+    update: false
+    delete: false
   read-format: true
   export: true
   update: false
@@ -177,7 +182,12 @@ sheets:
   add-tab: true             # Low risk, recoverable via version history
   rename-tab: true          # Low risk, recoverable
   delete-tab: true          # Recoverable via version history
-  chart: true               # All chart ops recoverable via revision history
+  chart:
+    list: true
+    get: true
+    create: true             # Recoverable via revision history
+    update: true             # Recoverable via revision history
+    delete: true             # Recoverable via revision history
 
 slides:
   export: true

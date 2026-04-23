@@ -156,7 +156,12 @@ sheets:
   notes: true
   update-note: false
   links: true
-  named-ranges: false
+  named-ranges:
+    list: true               # Read-only metadata
+    get: true                # Read-only metadata
+    add: false
+    update: false
+    delete: false
   read-format: true
   export: true
   update: false
@@ -176,7 +181,12 @@ sheets:
   add-tab: false
   rename-tab: false
   delete-tab: false
-  chart: false               # Single subtree; cannot expose only reads
+  chart:
+    list: true               # Read-only chart listing
+    get: true                # Read-only chart details
+    create: false
+    update: false
+    delete: false
 
 slides:
   export: true
