@@ -23,6 +23,7 @@ gmail:
     rename: true             # Rename labels for organization
     modify: true             # Apply/remove labels
     delete: false
+    style: true              # Restyle labels (color/visibility); easily reversible
   batch:
     modify: true             # Bulk label changes for triage
     delete: false
@@ -48,6 +49,7 @@ gmail:
   forwarding: false
   sendas: false
   vacation: false
+  forward: false             # Sends a copy to a third party; not recoverable
 
 calendar:
   calendars: true
@@ -71,6 +73,7 @@ calendar:
   focus-time: true
   out-of-office: false
   working-location: false
+  create-calendar: true      # New secondary calendar; recoverable by deletion
 
 drive:
   ls: true
@@ -174,6 +177,7 @@ sheets:
   add-tab: true             # Low risk, recoverable via version history
   rename-tab: true          # Low risk, recoverable
   delete-tab: true          # Recoverable via version history
+  chart: true               # All chart ops recoverable via revision history
 
 slides:
   export: true
@@ -188,6 +192,7 @@ slides:
   delete-slide: false
   update-notes: false
   replace-slide: false
+  thumbnail: true            # Read-only render of an existing slide
 
 chat:
   spaces:
@@ -262,6 +267,7 @@ auth:
   credentials:
     set: false
     list: true
+    remove: false            # Auth mutations stay off in agent-safe (parity with other auth flags)
   add: false
   services: true
   list: true

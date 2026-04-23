@@ -22,6 +22,7 @@ gmail:
     rename: false
     modify: false
     delete: false
+    style: false             # Modifies label appearance
   batch:
     modify: false
     delete: false
@@ -47,6 +48,7 @@ gmail:
   forwarding: false
   sendas: false
   vacation: false
+  forward: false             # Sends a message
 
 calendar:
   calendars: true
@@ -70,6 +72,7 @@ calendar:
   focus-time: false
   out-of-office: false
   working-location: false
+  create-calendar: false     # Creates a calendar
 
 drive:
   ls: true
@@ -173,6 +176,7 @@ sheets:
   add-tab: false
   rename-tab: false
   delete-tab: false
+  chart: false               # Single subtree; cannot expose only reads
 
 slides:
   export: true
@@ -187,6 +191,7 @@ slides:
   delete-slide: false
   update-notes: false
   replace-slide: false
+  thumbnail: true            # Read-only render of an existing slide
 
 chat:
   spaces:
@@ -261,6 +266,7 @@ auth:
   credentials:
     set: false
     list: true
+    remove: false            # Removes stored credentials
   add: false
   services: true
   list: true

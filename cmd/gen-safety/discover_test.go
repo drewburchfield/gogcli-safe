@@ -97,16 +97,6 @@ func TestParseTypesFiles(t *testing.T) {
 	if !hasSearch || !hasSend {
 		t.Errorf("GmailCmd missing expected fields: hasSearch=%v, hasSend=%v", hasSearch, hasSend)
 	}
-
-	// GmailCmd should have imports (googleapi).
-	if len(gmail.Imports) == 0 {
-		t.Error("GmailCmd should have imports")
-	}
-
-	// GmailCmd should have ExtraCode (var newGmailService).
-	if !strings.Contains(gmail.ExtraCode, "newGmailService") {
-		t.Errorf("GmailCmd ExtraCode should contain newGmailService, got: %q", gmail.ExtraCode)
-	}
 }
 
 // TestMultiStructFile verifies that files with multiple Cmd structs

@@ -21,6 +21,7 @@ gmail:
     rename: true
     modify: true
     delete: true
+    style: true
   batch:
     modify: true
     delete: true
@@ -46,6 +47,7 @@ gmail:
   forwarding: true
   sendas: true
   vacation: true
+  forward: true
 
 calendar:
   calendars: true
@@ -69,6 +71,7 @@ calendar:
   focus-time: true
   out-of-office: true
   working-location: true
+  create-calendar: true
 
 drive:
   ls: true
@@ -172,6 +175,7 @@ sheets:
   add-tab: true
   rename-tab: true
   delete-tab: true
+  chart: true
 
 slides:
   export: true
@@ -186,6 +190,7 @@ slides:
   delete-slide: true
   update-notes: true
   replace-slide: true
+  thumbnail: true
 
 chat:
   spaces:
@@ -262,6 +267,7 @@ auth:
   credentials:
     set: true
     list: true
+    remove: true
   add: true
   services: true
   list: true

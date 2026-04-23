@@ -23,6 +23,7 @@ func cleanRange(r string) string {
 	return strings.ReplaceAll(r, `\!`, "!")
 }
 
+
 type SheetsExportCmd struct {
 	SpreadsheetID string         `arg:"" name:"spreadsheetId" help:"Spreadsheet ID"`
 	Output        OutputPathFlag `embed:""`

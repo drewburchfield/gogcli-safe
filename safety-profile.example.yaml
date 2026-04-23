@@ -40,6 +40,7 @@ gmail:
     rename: false          # [medium] Rename a label
     modify: true           # [low] Apply/remove labels on messages
     delete: false          # [critical] Delete a label
+    style: false           # [low] Restyle (color/visibility); easily reversible
 
   batch:
     modify: true           # [low] Bulk label changes for triage
@@ -74,6 +75,7 @@ gmail:
   forwarding: false        # [critical] Forwarding addresses
   sendas: false            # [critical] Send-as settings
   vacation: false          # [critical] Vacation responder
+  forward: false           # [high] Forward a message to new recipients
 
 calendar:
   calendars: true          # [safe]
@@ -97,6 +99,7 @@ calendar:
   focus-time: true         # [low] Create focus time block
   out-of-office: true      # [low] Create OOO event
   working-location: true   # [low] Set working location
+  create-calendar: false   # [low] Create a new secondary calendar
 
 drive:
   ls: true                 # [safe]
@@ -200,6 +203,7 @@ sheets:
   add-tab: false           # [low] Add tab/sheet
   rename-tab: false        # [medium] Rename tab/sheet
   delete-tab: false        # [critical] Delete tab/sheet
+  chart: false             # [low] Manage spreadsheet charts (list/get/create/update/delete)
 
 slides:
   export: true             # [safe]
@@ -214,6 +218,7 @@ slides:
   delete-slide: false      # [medium]
   update-notes: false      # [medium]
   replace-slide: false     # [medium]
+  thumbnail: true          # [safe] Read-only render of an existing slide
 
 chat:
   spaces:
@@ -290,6 +295,7 @@ auth:
   credentials:
     set: true              # [medium]
     list: true             # [safe]
+    remove: false          # [medium] Remove stored OAuth credentials (re-auth required)
   add: true                # [medium]
   services: true           # [safe]
   list: true               # [safe]

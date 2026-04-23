@@ -18,8 +18,9 @@ type AuthCmd struct {
 }
 
 type AuthCredentialsCmd struct {
-	Set  AuthCredentialsSetCmd  `cmd:"" default:"withargs" help:"Store OAuth client credentials"`
-	List AuthCredentialsListCmd `cmd:"" name:"list" help:"List stored OAuth client credentials"`
+	Set    AuthCredentialsSetCmd    `cmd:"" default:"withargs" help:"Store OAuth client credentials"`
+	List   AuthCredentialsListCmd   `cmd:"" name:"list" help:"List stored OAuth client credentials"`
+	Remove AuthCredentialsRemoveCmd `cmd:"" name:"remove" help:"Remove stored OAuth client credentials"`
 }
 
 type AuthTokensCmd struct {
