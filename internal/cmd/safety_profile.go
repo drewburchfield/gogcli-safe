@@ -1,18 +1,27 @@
 package cmd
 
 import (
-	"fmt"
+	"hash/fnv"
 	"strings"
 
 	"github.com/alecthomas/kong"
-	"gopkg.in/yaml.v3"
 )
 
 type bakedSafetyProfile struct {
 	enabled bool
 	name    string
-	allow   map[string]bool
-	deny    map[string]bool
+}
+
+// bakedSafetyHashPath returns the FNV-64a hash of the dotted command path.
+// The generated allow/deny matchers switch on these hashes so that rule
+// strings never appear in the binary's data section. The build-time
+// generator hashes via internal/safetyprofile.HashRule; both call hash/fnv
+// over the same input, and TestSafetyProfileHashAgreement asserts they
+// produce identical values.
+func bakedSafetyHashPath(parts []string) uint64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(strings.Join(parts, ".")))
+	return h.Sum64()
 }
 
 func enforceBakedSafetyProfile(kctx *kong.Context) error {
@@ -42,38 +51,36 @@ func bakedSafetyProfileError(path []string, profileName string, included bool) e
 	return usagef("command %q is not included in baked safety profile %q", command, profileName)
 }
 
+// loadBakedSafetyProfile constructs a profile handle from the package-level
+// hooks supplied by either the generated safety_profile_baked_gen.go (for
+// safety_profile builds) or safety_profile_default.go (for stock and test
+// builds). The error result is retained for compatibility with the upstream
+// caller signatures; the profile is validated by cmd/bake-safety-profile at
+// build time, so the runtime path cannot fail.
+//
+//nolint:unparam // error preserved to keep upstream caller signatures unchanged.
 func loadBakedSafetyProfile() (bakedSafetyProfile, error) {
-	raw := strings.TrimSpace(bakedSafetyProfileYAML)
-	if raw == "" {
-		return bakedSafetyProfile{}, nil
-	}
-	profile, err := parseSafetyProfile(raw)
-	if err != nil {
-		return bakedSafetyProfile{}, err
-	}
-	return *profile, nil
-}
-
-func ValidateSafetyProfile(raw string) error {
-	_, err := parseSafetyProfile(raw)
-	return err
+	return bakedSafetyProfile{
+		enabled: bakedSafetyEnabled(),
+		name:    bakedSafetyProfileName(),
+	}, nil
 }
 
 func (p bakedSafetyProfile) allowsCommandPath(path []string) bool {
 	if !p.enabled || len(path) == 0 {
 		return true
 	}
-	if commandPathMatches(p.deny, path) {
+	if bakedSafetyDenyMatch(path) {
 		return false
 	}
-	if len(p.allow) == 0 {
+	if !bakedSafetyHasAllowRules() {
 		return true
 	}
-	return commandPathMatches(p.allow, path)
+	return bakedSafetyAllowMatch(path)
 }
 
 func (p bakedSafetyProfile) commandPathError(path []string) error {
-	if commandPathMatches(p.deny, path) {
+	if bakedSafetyDenyMatch(path) {
 		return bakedSafetyProfileError(path, p.name, true)
 	}
 	return bakedSafetyProfileError(path, p.name, false)
@@ -161,101 +168,4 @@ func applySafetyProfileVisibility(root *kong.Node, profile bakedSafetyProfile) f
 			restore[i].node.Hidden = restore[i].hidden
 		}
 	}
-}
-
-func parseSafetyProfile(raw string) (*bakedSafetyProfile, error) {
-	var root map[string]any
-	if err := yaml.Unmarshal([]byte(raw), &root); err != nil {
-		return nil, err
-	}
-
-	profile := &bakedSafetyProfile{
-		enabled: true,
-		name:    "unnamed",
-		allow:   map[string]bool{},
-		deny:    map[string]bool{},
-	}
-
-	if name, ok := root["name"].(string); ok && strings.TrimSpace(name) != "" {
-		profile.name = strings.TrimSpace(name)
-	}
-	if err := addSafetyProfileList(profile.allow, root["allow"]); err != nil {
-		return nil, fmt.Errorf("allow: %w", err)
-	}
-	if err := addSafetyProfileList(profile.deny, root["deny"]); err != nil {
-		return nil, fmt.Errorf("deny: %w", err)
-	}
-
-	for key, value := range root {
-		switch key {
-		case "name", "description", "allow", "deny":
-			continue
-		}
-		prefix := []string{key}
-		if key == "aliases" {
-			prefix = nil
-		}
-		if err := flattenSafetyProfileNode(profile, prefix, value); err != nil {
-			return nil, err
-		}
-	}
-
-	if len(profile.allow) == 0 && len(profile.deny) == 0 {
-		return nil, fmt.Errorf("profile has no allow or deny entries")
-	}
-	return profile, nil
-}
-
-func addSafetyProfileList(out map[string]bool, value any) error {
-	if value == nil {
-		return nil
-	}
-	items, ok := value.([]any)
-	if !ok {
-		return fmt.Errorf("expected list")
-	}
-	for _, item := range items {
-		s, ok := item.(string)
-		if !ok {
-			return fmt.Errorf("expected string item")
-		}
-		rule := normalizeSafetyProfileRule(s)
-		if rule != "" {
-			out[rule] = true
-		}
-	}
-	return nil
-}
-
-func flattenSafetyProfileNode(profile *bakedSafetyProfile, prefix []string, value any) error {
-	switch typed := value.(type) {
-	case bool:
-		rule := normalizeSafetyProfileRule(strings.Join(prefix, "."))
-		if rule == "" {
-			return fmt.Errorf("empty safety profile command path")
-		}
-		if typed {
-			profile.allow[rule] = true
-		} else {
-			profile.deny[rule] = true
-		}
-		return nil
-	case map[string]any:
-		for key, child := range typed {
-			next := append(append([]string{}, prefix...), key)
-			if err := flattenSafetyProfileNode(profile, next, child); err != nil {
-				return err
-			}
-		}
-		return nil
-	default:
-		return fmt.Errorf("unsupported safety profile value at %q", strings.Join(prefix, "."))
-	}
-}
-
-func normalizeSafetyProfileRule(rule string) string {
-	rule = strings.TrimSpace(strings.ToLower(rule))
-	rule = strings.ReplaceAll(rule, " ", ".")
-	rule = strings.Trim(rule, ".")
-	return rule
 }

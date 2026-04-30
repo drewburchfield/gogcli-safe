@@ -1,3 +1,5 @@
+//go:build !safety_profile
+
 package cmd
 
 import (
@@ -5,39 +7,51 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/steipete/gogcli/internal/safetyprofile"
 )
 
 func withBakedSafetyProfile(t *testing.T, raw string) {
 	t.Helper()
-	prev := bakedSafetyProfileYAML
-	bakedSafetyProfileYAML = raw
-	t.Cleanup(func() { bakedSafetyProfileYAML = prev })
+	profile, err := safetyprofile.Parse(raw)
+	if err != nil {
+		t.Fatalf("safetyprofile.Parse: %v", err)
+	}
+	allow := make(map[string]bool, len(profile.AllowRules))
+	for _, r := range profile.AllowRules {
+		allow[r] = true
+	}
+	deny := make(map[string]bool, len(profile.DenyRules))
+	for _, r := range profile.DenyRules {
+		deny[r] = true
+	}
+	prev := bakedSafetyTestProfile
+	bakedSafetyTestProfile.enabled = true
+	bakedSafetyTestProfile.name = profile.Name
+	bakedSafetyTestProfile.allowAll = profile.AllowAll
+	bakedSafetyTestProfile.hasAllowRules = profile.AllowAll || len(profile.AllowRules) > 0
+	bakedSafetyTestProfile.allow = allow
+	bakedSafetyTestProfile.deny = deny
+	t.Cleanup(func() { bakedSafetyTestProfile = prev })
 }
 
-func TestParseSafetyProfileNestedAndAliases(t *testing.T) {
-	profile, err := parseSafetyProfile(`
-name: test
-gmail:
-  search: true
-  send: false
-aliases:
-  send: false
-allow:
-  - version
-deny:
-  - auth.remove
-`)
-	if err != nil {
-		t.Fatalf("parseSafetyProfile: %v", err)
+func TestSafetyProfileHashAgreement(t *testing.T) {
+	cases := []struct {
+		path []string
+		rule string
+	}{
+		{[]string{"version"}, "version"},
+		{[]string{"gmail", "send"}, "gmail.send"},
+		{[]string{"gmail", "drafts", "send"}, "gmail.drafts.send"},
+		{[]string{"gmail", "drafts", "create"}, "gmail.drafts.create"},
+		{[]string{"calendar", "alias", "set"}, "calendar.alias.set"},
+		{[]string{"a"}, "a"},
 	}
-	for _, rule := range []string{"gmail.search", "version"} {
-		if !profile.allow[rule] {
-			t.Fatalf("expected allow rule %q in %#v", rule, profile.allow)
-		}
-	}
-	for _, rule := range []string{"gmail.send", "send", "auth.remove"} {
-		if !profile.deny[rule] {
-			t.Fatalf("expected deny rule %q in %#v", rule, profile.deny)
+	for _, c := range cases {
+		runtime := bakedSafetyHashPath(c.path)
+		codegen := safetyprofile.HashRule(c.rule)
+		if runtime != codegen {
+			t.Fatalf("hash mismatch for %v / %q: runtime=%#x codegen=%#x", c.path, c.rule, runtime, codegen)
 		}
 	}
 }

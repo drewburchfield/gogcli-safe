@@ -67,6 +67,21 @@ bin/gog-readonly --enable-commands gmail.send gmail send \
 The command still fails because the baked policy is checked before runtime
 allowlists.
 
+## Tamper Resistance
+
+The generator emits the allow and deny rule sets as `switch` statements on the
+FNV-64a hash of each dotted command path, not as raw YAML. The compiled rule
+table never contains the rule strings themselves, so to re-enable a blocked
+command an attacker has to patch compiled machine code rather than flip ASCII
+bytes in a YAML blob; the cost goes from a one-line `sed` invocation to
+disassembly-level work.
+
+Note that command names may still appear in the binary from unrelated metadata
+(API URLs, error message format strings, Kong help text). What this hardening
+guarantees is that the rule set itself is no longer a contiguous, patchable
+string. The profile name (e.g. `agent-safe`) is also embedded as a constant so
+error messages can reference it.
+
 ## Preset Profiles
 
 `safety-profiles/agent-safe.yaml`
