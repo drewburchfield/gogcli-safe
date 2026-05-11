@@ -1,5 +1,20 @@
+# agent-safe profile for gogcli-safe fork.
+#
+# Principle: block permanently destructive operations and external sends.
+# Allow editing, drafting, and any operation that's recoverable via trash
+# or Google's revision history. Auth state mutation is blocked (re-auth
+# via the full `gog` binary, not gog-safe).
+#
+# This is a tighter variant of upstream's agent-safe, curated for coding-
+# agent use. Diffs from upstream: enables docs/sheets/slides edits
+# (revision-history recoverable), enables gmail.trash and contacts CRUD,
+# blocks chat reactions and calendar.respond as external sends, locks
+# all auth writes.
+#
+# Used by build-safe.sh and the drewburchfield/tap homebrew formula.
+
 name: agent-safe
-description: Agent workflow profile. Allows reading, drafting, organizing, and recoverable local work; blocks sends, deletes, sharing, admin, and auth writes.
+description: Curated agent profile for gogcli-safe. Allows reading, drafting, editing (with revision-history recovery), and recoverable side effects. Blocks external sends, permanent deletes, sharing, admin, and auth writes.
 
 version: true
 schema: true
@@ -8,6 +23,7 @@ agent:
   exit-codes: true
 
 gmail:
+  # Reads
   search: true
   get: true
   messages: true
@@ -24,25 +40,26 @@ gmail:
     create: true
     rename: true
     modify: true
-    delete: false
+    delete: false       # destroys org state, not recoverable
     style: true
   batch:
     modify: true
-    delete: false
+    delete: false       # permanent
   archive: true
   mark-read: true
   unread: true
-  trash: false
-  send: false
-  autoreply: false
+  trash: true           # Gmail trash has 30-day recovery
+  send: false           # external
+  autoreply: false      # external-impact setting
   track: false
   drafts:
     list: true
     get: true
     create: true
     update: true
-    delete: false
+    delete: false       # drafts have no trash bin
     send: false
+  # Admin / external-impact settings
   settings: false
   watch: false
   autoforward: false
@@ -54,29 +71,32 @@ gmail:
   forward: false
 
 calendar:
+  # Reads
   calendars: true
-  subscribe: false
   acl: true
   alias: true
   events: true
   event: true
-  create: true
-  update: true
-  move: true
-  delete: false
   freebusy: true
-  respond: false
-  propose-time: true
   colors: true
   conflicts: true
   search: true
   time: true
   users: true
   team: true
-  focus-time: true
-  out-of-office: false
-  working-location: false
-  create-calendar: true
+  # Writes (recoverable / no external notification)
+  subscribe: true       # unsubscribe is recoverable
+  create: true
+  update: true
+  move: true
+  propose-time: true    # generates URL only
+  focus-time: true      # personal block
+  working-location: true # cosmetic, recoverable
+  create-calendar: true # recoverable
+  # External / notification-emitting
+  delete: false         # cancels event, emails attendees
+  respond: false        # RSVPs notify host
+  out-of-office: false  # triggers auto-replies
 
 drive:
   ls: true
@@ -86,21 +106,21 @@ drive:
   upload: true
   mkdir: true
   copy: true
-  delete: false
   move: true
   rename: true
-  share: false
-  unshare: false
-  permissions: true
+  permissions: true     # read-only
   url: true
   drives: true
+  delete: false         # could be permanent
+  share: false          # external visibility
+  unshare: false        # hard to verify reversal
   comments:
     list: true
     get: true
     create: true
     update: true
-    delete: false
     reply: true
+    delete: false       # not recoverable via revision
 
 sites:
   list: true
@@ -113,9 +133,9 @@ contacts:
   list: true
   get: true
   export: true
-  create: false
-  update: false
-  delete: false
+  create: true          # recoverable
+  update: true          # recoverable
+  delete: false         # Google contacts delete is not reliably recoverable
   directory:
     list: true
     search: true
@@ -124,108 +144,102 @@ contacts:
     search: true
     delete: false
 
-tasks:
-  lists:
-    list: true
-    create: true
-  list: true
-  get: true
-  add: true
-  update: true
-  done: true
-  undo: true
-  delete: false
-  clear: false
+tasks: false            # using clings instead
 
 docs:
+  # Reads
   export: true
   info: true
   cat: true
   list-tabs: true
-  create: false
-  copy: false
-  write: false
-  insert: false
-  delete: false
-  find-replace: false
-  update: false
-  edit: false
-  sed: false
-  clear: false
   structure: true
+  # Edits (Google Docs revision history covers all)
+  create: true
+  copy: true
+  write: true
+  insert: true
+  update: true
+  edit: true
+  sed: true
+  find-replace: true
+  clear: true
+  delete: false         # whole-doc delete; use drive trash if needed
   comments:
     list: true
     get: true
     add: true
     reply: true
-    resolve: false
-    delete: false
+    resolve: true       # unresolve restores
+    delete: false       # comment delete not in revision history
 
 sheets:
+  # Reads
   get: true
   metadata: true
   notes: true
-  update-note: false
   links: true
+  read-format: true
+  export: true
+  # Edits (Sheets version history covers all)
+  update: true
+  append: true
+  insert: true
+  update-note: true
+  format: true
+  merge: true
+  unmerge: true
+  number-format: true
+  freeze: true
+  resize-columns: true
+  resize-rows: true
+  find-replace: true
+  clear: true
+  create: true
+  copy: true
+  add-tab: true
+  rename-tab: true
+  delete-tab: true      # version history restores tabs
   named-ranges:
     list: true
     get: true
-    add: false
-    update: false
-    delete: false
-  read-format: true
-  export: true
-  update: false
-  batch-update: false
-  append: false
-  insert: false
-  clear: false
-  format: false
-  merge: false
-  unmerge: false
-  number-format: false
-  freeze: false
-  resize-columns: false
-  resize-rows: false
-  find-replace: false
-  create: false
-  copy: false
-  add-tab: true
-  rename-tab: true
-  delete-tab: false
+    add: true
+    update: true
+    delete: true        # version history restores
   chart:
     list: true
     get: true
     create: true
     update: true
-    delete: false
+    delete: true        # version history restores
 
 slides:
+  # Reads
   export: true
   info: true
   list-slides: true
   read-slide: true
   thumbnail: true
-  create: false
-  create-from-markdown: false
-  create-from-template: false
-  copy: false
-  add-slide: false
-  delete-slide: false
-  update-notes: false
-  replace-slide: false
-  insert-text: false
-  replace-text: false
+  # Edits (revision history covers all)
+  create: true
+  create-from-markdown: true
+  create-from-template: true
+  copy: true
+  add-slide: true
+  delete-slide: true
+  update-notes: true
+  replace-slide: true
+  insert-text: true
+  replace-text: true
 
 chat:
   spaces:
     list: true
     find: true
-    create: false
+    create: false       # invites others
   messages:
     list: true
-    send: false
-    react: true
+    send: false         # external
+    react: false        # reactions notify others
     reactions: false
   threads:
     list: true
@@ -235,22 +249,22 @@ chat:
 
 forms:
   get: true
-  create: false
-  update: false
-  publish: false
-  add-question: false
-  delete-question: false
-  move-question: true
   responses:
     list: true
     get: true
+  create: false         # observable
+  update: false
+  publish: false        # makes form live
+  add-question: false
+  delete-question: false
+  move-question: true   # reordering only
   watch: false
 
 appscript:
   get: true
   content: true
-  run: false
-  create: false
+  run: false            # arbitrary code execution
+  create: false         # creates triggerable code
 
 people:
   me: true
@@ -262,14 +276,9 @@ groups:
   list: true
   members: true
 
-keep:
-  list: true
-  get: true
-  search: true
-  create: true
-  delete: false
-  attachment: true
+keep: false             # not used
 
+# Auth state changes go through full `gog`, not gog-safe.
 auth:
   credentials:
     list: true
@@ -318,14 +327,14 @@ completion: false
 __complete: false
 
 aliases:
-  send: false
   ls: true
   search: true
   open: true
   download: true
   upload: true
-  login: false
-  logout: false
   status: true
   me: true
   whoami: true
+  send: false           # mirrors gmail send
+  login: false          # auth flow
+  logout: false
