@@ -16,6 +16,8 @@ permissions:
 
 jobs:
   goreleaser:
+    # Skip on forks; release secrets and homebrew tap are upstream-only.
+    if: github.repository == 'steipete/gogcli'
     runs-on: macos-15
     steps:
       - name: Checkout
@@ -85,6 +87,8 @@ jobs:
           GOG_CODESIGN_IDENTITY: ${{ secrets.MACOS_CODESIGN_IDENTITY }}
 
   update-homebrew-tap:
+    # Skip on forks; tap is updated directly from the fork repo.
+    if: github.repository == 'steipete/gogcli'
     runs-on: ubuntu-latest
     needs: goreleaser
     steps:
