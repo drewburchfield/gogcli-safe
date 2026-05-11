@@ -25,6 +25,8 @@ concurrency:
 jobs:
   deploy:
     name: Deploy docs
+    # Skip on forks; only upstream publishes the docs site.
+    if: github.repository == 'steipete/gogcli'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     environment:
