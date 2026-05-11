@@ -6,6 +6,8 @@
 
 ### Fixed
 
+- Docs: update OAuth success/accounts GitHub links to the `openclaw/gogcli` repository. (#561)
+
 ## 0.16.0 - 2026-05-10
 
 ### Added
