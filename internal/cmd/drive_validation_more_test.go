@@ -321,6 +321,52 @@ func TestDriveShare_Notify(t *testing.T) {
 	}
 }
 
+func TestDriveShare_DryRunSkipsPermissionCreate(t *testing.T) {
+	origNew := newDriveService
+	t.Cleanup(func() { newDriveService = origNew })
+
+	var createCalls int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := strings.TrimPrefix(r.URL.Path, "/drive/v3")
+		if r.Method == http.MethodPost && strings.HasSuffix(path, "/permissions") {
+			createCalls++
+			t.Fatalf("permission create should not be called during dry-run")
+		}
+		http.NotFound(w, r)
+	}))
+	defer srv.Close()
+
+	svc, err := drive.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(srv.Client()),
+		option.WithEndpoint(srv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("NewDriveService: %v", err)
+	}
+	newDriveService = func(context.Context, string) (*drive.Service, error) { return svc, nil }
+
+	out := captureStdout(t, func() {
+		err := (&DriveShareCmd{
+			FileID: "f1",
+			To:     driveShareToUser,
+			Email:  "x@y.com",
+			Role:   drivePermRoleReader,
+			Notify: true,
+		}).Run(newCalendarJSONContext(t), &RootFlags{Account: "a@b.com", DryRun: true})
+		var exitErr *ExitError
+		if !errors.As(err, &exitErr) || exitErr.Code != 0 {
+			t.Fatalf("DriveShareCmd.Run: %v", err)
+		}
+	})
+	if createCalls != 0 {
+		t.Fatalf("permission create calls = %d", createCalls)
+	}
+	if !strings.Contains(out, `"sendNotificationEmail": true`) {
+		t.Fatalf("unexpected dry-run output: %s", out)
+	}
+}
+
 func TestDriveDownload_TextOutput(t *testing.T) {
 	origNew := newDriveService
 	origDownload := driveDownload

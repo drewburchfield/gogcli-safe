@@ -180,6 +180,7 @@ gog drive inventory --parent <folderId> --json
 gog drive audit sharing --parent <folderId> --internal-domain example.com --json
 gog drive audit user clawdbot@gmail.com --parent <folderId> --json
 gog drive bulk remove-public --parent <folderId> --dry-run
+gog drive share <fileId> --to user --email person@example.com --notify --dry-run
 gog drive labels list --json
 gog drive labels file list <fileId> --json
 gog drive labels file apply <fileId> <labelId> --text fieldId=value
@@ -211,9 +212,17 @@ gog maps geocode "1600 Amphitheatre Parkway, Mountain View, CA" --json
 gog maps reverse-geocode --lat=37.422 --lng=-122.084 --json
 ```
 
+Use comma-separated `maps distance --origins/--destinations` for multiple
+locations. If an address itself contains commas, pass it without commas or use a
+Place ID/lat,lng value to avoid splitting it.
+
 ### Photos
 
 Docs: [`gog photos`](docs/commands/gog-photos.md).
+
+Google Photos Library API access is limited to app-created media through
+`photoslibrary.readonly.appcreateddata`, and the Photos Library API must be
+enabled on the OAuth project used for `gog auth add`.
 
 ```bash
 gog photos list --json
@@ -246,6 +255,7 @@ Docs: [Google Docs editing](docs/docs-editing.md),
 gog docs write <docId> --append --markdown --text '## Status'
 gog docs format <docId> --match Status --bold --font-size 18
 gog docs add-tab <docId> --title "Notes"
+gog docs tabs add <docId> --title "Notes"
 gog docs find-replace <docId> old new --tab "Notes" --dry-run
 gog docs raw <docId> --pretty
 ```
@@ -280,6 +290,7 @@ gog slides create-from-markdown "Weekly update" --content-file slides.md
 gog slides insert-text <presentationId> <objectId> "New text"
 gog forms update <formId> --quiz=true
 gog forms add-question <formId> --title "What is 2+2?" --type radio -o 1 -o 4 --correct 4 --points 1
+gog forms questions add <formId> --title "What is 2+2?" --type radio -o 1 -o 4 --correct 4 --points 1
 gog forms publish <formId>
 gog forms responses list <formId> --json
 gog forms raw <formId> --pretty
@@ -298,6 +309,10 @@ gog yt channels list --id UC_x5XG1OV2P6uZZ5FSM9Ttw --json
 gog yt videos list --chart mostPopular --region US --max 5
 gog yt activities list --mine -a you@gmail.com
 ```
+
+For API-key reads, enable YouTube Data API v3 on the key's Google Cloud project
+and make sure API-key restrictions allow YouTube Data API calls. Authenticated
+`--mine` reads use OAuth instead.
 
 ### Analytics and Search Console
 

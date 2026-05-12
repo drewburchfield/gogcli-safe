@@ -72,6 +72,19 @@ func (c *DriveShareCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	perm := target.permission(role, c.Discoverable)
+	if dryRunErr := dryRunExit(ctx, flags, "drive.share", map[string]any{
+		"fileId": fileID,
+		"permission": map[string]any{
+			"type":               perm.Type,
+			"role":               perm.Role,
+			"emailAddress":       perm.EmailAddress,
+			"domain":             perm.Domain,
+			"allowFileDiscovery": perm.AllowFileDiscovery,
+		},
+		"sendNotificationEmail": c.Notify,
+	}); dryRunErr != nil {
+		return dryRunErr
+	}
 
 	created, err := svc.Permissions.Create(fileID, perm).
 		SupportsAllDrives(true).
