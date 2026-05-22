@@ -118,7 +118,7 @@ func acquireTrackingConfigLock() (func(), error) {
 			return func() { _ = os.Remove(path) }, nil
 		}
 
-		if !os.IsExist(openErr) {
+		if !os.IsExist(openErr) && !isTransientTrackingConfigLockError(openErr) {
 			return nil, fmt.Errorf("acquire tracking config lock: %w", openErr)
 		}
 
