@@ -2,19 +2,21 @@
 #
 # Principle: block permanently destructive operations and external sends.
 # Allow editing, drafting, and any operation that's recoverable via trash
-# or Google's revision history. Auth state mutation is blocked (re-auth
-# via the full `gog` binary, not gog-safe).
+# or Google's revision history. Destructive auth state mutation is blocked
+# (re-auth via the full `gog` binary, not gog-safe); additive `auth add` is
+# allowed since it only creates a new account credential.
 #
 # This is a tighter variant of upstream's agent-safe, curated for coding-
 # agent use. Diffs from upstream: enables docs/sheets/slides edits
 # (revision-history recoverable), enables gmail.trash and contacts CRUD,
 # blocks chat reactions and calendar.respond as external sends, locks
-# all auth writes.
+# destructive auth writes (set/remove/manage/keyring) but allows additive
+# `auth add`.
 #
 # Used by build-safe.sh and the drewburchfield/tap homebrew formula.
 
 name: agent-safe
-description: Curated agent profile for gogcli-safe. Allows reading, drafting, editing (with revision-history recovery), and recoverable side effects. Blocks external sends, permanent deletes, sharing, admin, and auth writes.
+description: Curated agent profile for gogcli-safe. Allows reading, drafting, editing (with revision-history recovery), and recoverable side effects. Blocks external sends, permanent deletes, sharing, admin, and destructive auth writes (allows additive auth add).
 
 version: true
 schema: true
@@ -293,7 +295,7 @@ auth:
     unset: false
   status: true
   keyring: false
-  add: false
+  add: true            # additive: creates a new account credential, non-destructive
   remove: false
   tokens:
     list: true
