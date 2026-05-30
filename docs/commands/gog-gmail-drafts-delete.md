@@ -2,7 +2,7 @@
 
 > Generated from `gog schema --json`. Do not edit this page by hand; run `make docs-commands`.
 
-Delete a draft
+Permanently delete a draft (not recoverable; drafts are not moved to Trash)
 
 ## Usage
 

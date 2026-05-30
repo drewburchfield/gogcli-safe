@@ -386,7 +386,7 @@ Generated pages: 572.
       - [gog gmail batch modify](gog-gmail-batch-modify.md) - Modify labels on multiple messages
     - [gog gmail drafts](gog-gmail-drafts.md) - Draft operations
       - [gog gmail drafts create](gog-gmail-drafts-create.md) - Create a draft
-      - [gog gmail drafts delete](gog-gmail-drafts-delete.md) - Delete a draft
+      - [gog gmail drafts delete](gog-gmail-drafts-delete.md) - Permanently delete a draft (not recoverable; drafts are not moved to Trash)
       - [gog gmail drafts get](gog-gmail-drafts-get.md) - Get draft details
       - [gog gmail drafts list](gog-gmail-drafts-list.md) - List drafts
       - [gog gmail drafts send](gog-gmail-drafts-send.md) - Send a draft

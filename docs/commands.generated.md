@@ -335,7 +335,7 @@ Generated from `gog schema --json`.
       - [`gog gmail (mail,email) batch modify (update,edit,set) <messageId> ... [flags]`](commands/gog-gmail-batch-modify.md) - Modify labels on multiple messages
     - [`gog gmail (mail,email) drafts (draft) <command>`](commands/gog-gmail-drafts.md) - Draft operations
       - [`gog gmail (mail,email) drafts (draft) create (add,new) [flags]`](commands/gog-gmail-drafts-create.md) - Create a draft
-      - [`gog gmail (mail,email) drafts (draft) delete (rm,del,remove) <draftId>`](commands/gog-gmail-drafts-delete.md) - Delete a draft
+      - [`gog gmail (mail,email) drafts (draft) delete (rm,del,remove) <draftId>`](commands/gog-gmail-drafts-delete.md) - Permanently delete a draft (not recoverable; drafts are not moved to Trash)
       - [`gog gmail (mail,email) drafts (draft) get (info,show) <draftId> [flags]`](commands/gog-gmail-drafts-get.md) - Get draft details
       - [`gog gmail (mail,email) drafts (draft) list (ls) [flags]`](commands/gog-gmail-drafts-list.md) - List drafts
       - [`gog gmail (mail,email) drafts (draft) send (post) <draftId>`](commands/gog-gmail-drafts-send.md) - Send a draft
