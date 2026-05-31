@@ -394,16 +394,7 @@ func (d *DriveUploader) UploadAsset(ctx context.Context, name, mime string, body
 		_ = d.Svc.Files.Delete(created.Id).Context(ctx).Do()
 		return ImageRef{}, fmt.Errorf("permission %s: %w", created.Id, err)
 	}
-	url := created.WebContentLink
-	if url == "" {
-		got, err := d.Svc.Files.Get(created.Id).Fields("webContentLink").Context(ctx).Do()
-		if err != nil {
-			_ = d.Svc.Files.Delete(created.Id).Context(ctx).Do()
-			return ImageRef{}, fmt.Errorf("get url for %s: %w", created.Id, err)
-		}
-		url = got.WebContentLink
-	}
-	return ImageRef{DriveFileID: created.Id, PublicURL: url}, nil
+	return ImageRef{DriveFileID: created.Id, PublicURL: driveImageDownloadURL(created.Id)}, nil
 }
 
 func (d *DriveUploader) DeleteAsset(ctx context.Context, fileID string) error {

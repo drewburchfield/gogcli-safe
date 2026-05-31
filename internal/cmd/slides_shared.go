@@ -1,9 +1,13 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 
+	gapi "google.golang.org/api/googleapi"
 	"google.golang.org/api/slides/v1"
 )
 
@@ -107,4 +111,36 @@ func buildSlidesReplaceTextRequests(objectID string, text string, hasExistingTex
 
 func buildSlidesClearAndInsertTextRequests(objectID string, text string) []*slides.Request {
 	return buildSlidesReplaceTextRequests(objectID, text, true)
+}
+
+func batchUpdateSlidesImageRequests(ctx context.Context, svc *slides.Service, presentationID string, req *slides.BatchUpdatePresentationRequest) error {
+	var lastErr error
+	for attempt := 0; ; attempt++ {
+		_, err := svc.Presentations.BatchUpdate(presentationID, req).Context(ctx).Do()
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		if attempt >= len(docsImageInsertRetryDelays) || !isRetryableSlidesImageRequestError(err) {
+			return lastErr
+		}
+		if err := waitDocsImageInsertRetry(ctx, docsImageInsertRetryDelays[attempt]); err != nil {
+			return err
+		}
+	}
+}
+
+func isRetryableSlidesImageRequestError(err error) bool {
+	var apiErr *gapi.Error
+	if errors.As(err, &apiErr) {
+		if apiErr.Code >= 500 {
+			return true
+		}
+		if apiErr.Code == 400 && strings.Contains(apiErr.Message, "retrieving the image") {
+			return true
+		}
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "retrieving the image") ||
+		strings.Contains(errStr, "provided image should be publicly accessible")
 }

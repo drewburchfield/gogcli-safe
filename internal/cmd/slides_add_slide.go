@@ -110,18 +110,7 @@ func (c *SlidesAddSlideCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return fmt.Errorf("set image permissions: %w", err)
 	}
 
-	// Obtain a public download URL
-	imageURL := driveFile.WebContentLink
-	if imageURL == "" {
-		got, getErr := driveSvc.Files.Get(driveFile.Id).Fields("webContentLink").Context(ctx).Do()
-		if getErr != nil {
-			return fmt.Errorf("get image URL: %w", getErr)
-		}
-		imageURL = got.WebContentLink
-	}
-	if imageURL == "" {
-		return fmt.Errorf("could not obtain public URL for uploaded image")
-	}
+	imageURL := driveImageDownloadURL(driveFile.Id)
 
 	// Get presentation to read page size and current slide count
 	pres, err := slidesSvc.Presentations.Get(presentationID).Context(ctx).Do()
@@ -165,7 +154,7 @@ func (c *SlidesAddSlideCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	// Create the slide with a full-bleed image in one batch
-	_, err = slidesSvc.Presentations.BatchUpdate(presentationID, &slides.BatchUpdatePresentationRequest{
+	err = batchUpdateSlidesImageRequests(ctx, slidesSvc, presentationID, &slides.BatchUpdatePresentationRequest{
 		Requests: []*slides.Request{
 			{
 				CreateSlide: createSlideReq,
@@ -188,7 +177,7 @@ func (c *SlidesAddSlideCmd) Run(ctx context.Context, flags *RootFlags) error {
 				},
 			},
 		},
-	}).Context(ctx).Do()
+	})
 	if err != nil {
 		return fmt.Errorf("create slide: %w", err)
 	}

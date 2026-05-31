@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/option"
@@ -286,6 +287,113 @@ func TestSlidesAddSlide_WithNotes(t *testing.T) {
 	// With notes: 1 for create slide+image, 1 for insert text
 	if batchUpdateCount != 2 {
 		t.Errorf("expected 2 batchUpdates (with notes), got %d", batchUpdateCount)
+	}
+}
+
+func TestSlidesAddSlide_RetriesImageFetchAndUsesDownloadURL(t *testing.T) {
+	origSlides := newSlidesService
+	origDrive := newDriveService
+	origRetryDelays := docsImageInsertRetryDelays
+	t.Cleanup(func() {
+		newSlidesService = origSlides
+		newDriveService = origDrive
+		docsImageInsertRetryDelays = origRetryDelays
+	})
+	docsImageInsertRetryDelays = []time.Duration{0}
+
+	var batchUpdateCount int
+	var createImageURL string
+
+	slidesSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case strings.HasSuffix(r.URL.Path, ":batchUpdate") && r.Method == http.MethodPost:
+			batchUpdateCount++
+			var req slides.BatchUpdatePresentationRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err == nil {
+				for _, rr := range req.Requests {
+					if rr.CreateImage != nil {
+						createImageURL = rr.CreateImage.Url
+					}
+				}
+			}
+			if batchUpdateCount == 1 {
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"error": map[string]any{
+						"code":    http.StatusBadRequest,
+						"message": "Invalid requests[1].createImage: There was a problem retrieving the image.",
+					},
+				})
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"presentationId": "pres1",
+				"replies":        []any{},
+			})
+		case strings.Contains(r.URL.Path, "/presentations/pres1") && r.Method == http.MethodGet:
+			_ = json.NewEncoder(w).Encode(slidesPresGetResponse("", false))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer slidesSrv.Close()
+
+	driveSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		switch {
+		case strings.Contains(r.URL.Path, "/upload/") && r.Method == http.MethodPost:
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "img_retry"})
+		case strings.Contains(r.URL.Path, "/files/img_retry/permissions") && r.Method == http.MethodPost:
+			_ = json.NewEncoder(w).Encode(map[string]any{"id": "perm1"})
+		case strings.Contains(r.URL.Path, "/files/img_retry") && r.Method == http.MethodDelete:
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer driveSrv.Close()
+
+	slidesSvc, err := slides.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(slidesSrv.Client()),
+		option.WithEndpoint(slidesSrv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("slides.NewService: %v", err)
+	}
+	newSlidesService = func(context.Context, string) (*slides.Service, error) { return slidesSvc, nil }
+
+	driveSvc, err := drive.NewService(context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(driveSrv.Client()),
+		option.WithEndpoint(driveSrv.URL+"/"),
+	)
+	if err != nil {
+		t.Fatalf("drive.NewService: %v", err)
+	}
+	newDriveService = func(context.Context, string) (*drive.Service, error) { return driveSvc, nil }
+
+	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
+	if uiErr != nil {
+		t.Fatalf("ui.New: %v", uiErr)
+	}
+	ctx := ui.WithUI(context.Background(), u)
+
+	cmd := &SlidesAddSlideCmd{
+		PresentationID: "pres1",
+		Image:          newTestImage(t, "test.png"),
+	}
+	if err := cmd.Run(ctx, &RootFlags{Account: "a@b.com"}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if batchUpdateCount != 2 {
+		t.Fatalf("expected retry after image retrieval failure, got %d batchUpdates", batchUpdateCount)
+	}
+	if createImageURL != driveImageDownloadURL("img_retry") {
+		t.Fatalf("CreateImage URL = %q, want %q", createImageURL, driveImageDownloadURL("img_retry"))
 	}
 }
 
