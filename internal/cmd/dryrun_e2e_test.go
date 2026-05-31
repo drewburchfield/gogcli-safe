@@ -57,6 +57,11 @@ func TestDryRunE2E_MutatingCommandsSkipAuthAndAPI(t *testing.T) {
 			op:   "docs.clear",
 		},
 		{
+			name: "docs copy",
+			args: []string{"docs", "copy", "doc123", "SmokeDoc"},
+			op:   "docs.copy",
+		},
+		{
 			name: "docs write replace",
 			args: []string{"docs", "write", "doc123", "--text", "hello", "--replace"},
 			op:   "docs.write",
@@ -120,6 +125,11 @@ func TestDryRunE2E_MutatingCommandsSkipAuthAndAPI(t *testing.T) {
 			name: "drive mkdir",
 			args: []string{"drive", "mkdir", "SmokeFolder", "--parent", "root"},
 			op:   "drive.mkdir",
+		},
+		{
+			name: "drive copy",
+			args: []string{"drive", "copy", "file123", "SmokeFile"},
+			op:   "drive.copy",
 		},
 		{
 			name: "drive delete",
@@ -452,6 +462,11 @@ func TestDryRunE2E_MutatingCommandsSkipAuthAndAPI(t *testing.T) {
 			op:   "slides.create",
 		},
 		{
+			name: "slides copy",
+			args: []string{"slides", "copy", "pres123", "SmokeSlides"},
+			op:   "slides.copy",
+		},
+		{
 			name: "slides create from template",
 			args: []string{"slides", "create-from-template", "template123", "SmokeSlides", "--replace", "NAME=World"},
 			op:   "slides.create-from-template",
@@ -510,6 +525,11 @@ func TestDryRunE2E_MutatingCommandsSkipAuthAndAPI(t *testing.T) {
 			name: "sheets conditional clear all",
 			args: []string{"sheets", "conditional-format", "clear", "sheet123", "--sheet", "Sheet1", "--all"},
 			op:   "sheets.conditional-format.clear",
+		},
+		{
+			name: "sheets copy",
+			args: []string{"sheets", "copy", "sheet123", "SmokeSheet"},
+			op:   "sheets.copy",
 		},
 		{
 			name: "sheets table delete",

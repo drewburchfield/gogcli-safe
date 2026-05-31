@@ -87,6 +87,7 @@ type SheetsCopyCmd struct {
 
 func (c *SheetsCopyCmd) Run(ctx context.Context, flags *RootFlags) error {
 	return copyViaDrive(ctx, flags, copyViaDriveOptions{
+		Op:           "sheets.copy",
 		ArgName:      "spreadsheetId",
 		ExpectedMime: "application/vnd.google-apps.spreadsheet",
 		KindLabel:    "Google Sheet",

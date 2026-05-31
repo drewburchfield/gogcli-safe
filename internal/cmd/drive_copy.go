@@ -14,6 +14,7 @@ import (
 )
 
 type copyViaDriveOptions struct {
+	Op           string
 	ArgName      string
 	ExpectedMime string
 	KindLabel    string
@@ -35,7 +36,11 @@ func copyViaDrive(ctx context.Context, flags *RootFlags, opts copyViaDriveOption
 	}
 	parent = normalizeGoogleID(strings.TrimSpace(parent))
 
-	if err := dryRunExit(ctx, flags, "drive.copy", map[string]any{
+	op := strings.TrimSpace(opts.Op)
+	if op == "" {
+		op = "drive.copy"
+	}
+	if err := dryRunExit(ctx, flags, op, map[string]any{
 		"id":     id,
 		"name":   name,
 		"parent": parent,

@@ -16,6 +16,7 @@
 - Contacts: use an other-contact-safe read mask for `contacts other list` and `contacts other search` so Google does not reject the request.
 - Classroom: reject unfiltered `classroom invitations list` locally because the API requires `--course` or `--user`.
 - Classroom: report the canonical hyphenated dry-run op for `guardian-invitations create`.
+- Docs/Sheets/Slides: report service-specific dry-run ops for `copy` commands instead of `drive.copy`.
 - Gmail: make `gmail track setup`, `gmail track status`, and `gmail track key rotate` honor `--json` on success without printing generated tracking secrets to stderr.
 - YouTube: let `activities list --channel-id`, `playlists list --channel-id`, and `channels list --id` honor `--account` OAuth instead of requiring an API key.
 

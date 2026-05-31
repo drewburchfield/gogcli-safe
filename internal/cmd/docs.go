@@ -293,6 +293,7 @@ type DocsCopyCmd struct {
 
 func (c *DocsCopyCmd) Run(ctx context.Context, flags *RootFlags) error {
 	return copyViaDrive(ctx, flags, copyViaDriveOptions{
+		Op:           "docs.copy",
 		ArgName:      "docId",
 		ExpectedMime: "application/vnd.google-apps.document",
 		KindLabel:    "Google Doc",

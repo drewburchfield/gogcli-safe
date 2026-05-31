@@ -320,6 +320,7 @@ type SlidesCopyCmd struct {
 
 func (c *SlidesCopyCmd) Run(ctx context.Context, flags *RootFlags) error {
 	return copyViaDrive(ctx, flags, copyViaDriveOptions{
+		Op:           "slides.copy",
 		ArgName:      "presentationId",
 		ExpectedMime: "application/vnd.google-apps.presentation",
 		KindLabel:    "Google Slides presentation",
