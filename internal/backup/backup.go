@@ -263,6 +263,7 @@ func Verify(ctx context.Context, opts Options) (Result, error) {
 		}
 		counts[key] += rows
 	}
+	fillMissingCounts(counts, manifest.Counts)
 	return Result{Repo: cfg.Repo, Changed: false, Encrypted: manifest.Encrypted, Shards: len(manifest.Shards), Counts: counts}, nil
 }
 
@@ -294,6 +295,19 @@ func NewJSONLShard(service, kind, account, rel string, rows any) (PlainShard, er
 		Rows:      count,
 		Plaintext: plaintext,
 	}, nil
+}
+
+func fillMissingCounts(out map[string]int, counts map[string]int) {
+	for key, value := range counts {
+		if _, exists := out[key]; exists && !manifestCountOverridesShardCount(key) {
+			continue
+		}
+		out[key] = value
+	}
+}
+
+func manifestCountOverridesShardCount(key string) bool {
+	return key == "drive.contents"
 }
 
 func ExistingShard(entry ShardEntry, recipients []string) PlainShard {
@@ -931,12 +945,13 @@ func removeTempShardFiles(repo string) error {
 			}
 			name := d.Name()
 			if strings.HasPrefix(name, ".shard-") && strings.HasSuffix(name, ".age") {
-				return os.Remove(path) //nolint:gosec // repo-owned temp shard paths come from WalkDir below configured backup roots.
+				return os.Remove(path) // #nosec G122 -- repo-owned temp shard cleanup is constrained to configured backup roots and shard temp names.
 			}
 			return nil
 		}); err != nil {
-			return err
+			return fmt.Errorf("remove temp shard files under %s: %w", root, err)
 		}
 	}
+
 	return nil
 }

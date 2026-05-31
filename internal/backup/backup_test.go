@@ -59,6 +59,71 @@ func TestPushSnapshotAndVerify(t *testing.T) {
 	}
 }
 
+func TestVerifyReportsManifestSemanticCounts(t *testing.T) {
+	ctx, _, config, _ := initTestBackup(t)
+
+	shard, err := NewJSONLShard("contacts", "people", "acct", "data/contacts/acct/people/part-0001.jsonl.gz.age", []map[string]string{
+		{"source": "connections"},
+		{"source": "other"},
+	})
+	if err != nil {
+		t.Fatalf("NewJSONLShard: %v", err)
+	}
+	if _, pushErr := PushSnapshot(ctx, Snapshot{
+		Services: []string{"contacts"},
+		Accounts: []string{"acct"},
+		Counts: map[string]int{
+			"contacts.connections": 1,
+			"contacts.other":       1,
+			"contacts.people":      99,
+		},
+		Shards: []PlainShard{shard},
+	}, Options{ConfigPath: config, Push: false}); pushErr != nil {
+		t.Fatalf("PushSnapshot: %v", pushErr)
+	}
+
+	verify, err := Verify(ctx, Options{ConfigPath: config})
+	if err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+	if verify.Counts["contacts.connections"] != 1 || verify.Counts["contacts.other"] != 1 || verify.Counts["contacts.people"] != 2 {
+		t.Fatalf("unexpected verify counts: %+v", verify.Counts)
+	}
+}
+
+func TestVerifyReportsManifestCountsForSemanticCollisions(t *testing.T) {
+	ctx, _, config, _ := initTestBackup(t)
+
+	shard, err := NewJSONLShard("drive", "contents", "acct", "data/drive/acct/contents/part-0001.jsonl.gz.age", []map[string]any{
+		{"fileID": "ok", "dataBase64": "b2s="},
+		{"fileID": "skipped", "skipped": true},
+		{"fileID": "error", "error": "export failed"},
+	})
+	if err != nil {
+		t.Fatalf("NewJSONLShard: %v", err)
+	}
+	if _, pushErr := PushSnapshot(ctx, Snapshot{
+		Services: []string{"drive"},
+		Accounts: []string{"acct"},
+		Counts: map[string]int{
+			"drive.contents":         1,
+			"drive.contents.skipped": 1,
+			"drive.contents.errors":  1,
+		},
+		Shards: []PlainShard{shard},
+	}, Options{ConfigPath: config, Push: false}); pushErr != nil {
+		t.Fatalf("PushSnapshot: %v", pushErr)
+	}
+
+	verify, err := Verify(ctx, Options{ConfigPath: config})
+	if err != nil {
+		t.Fatalf("Verify: %v", err)
+	}
+	if verify.Counts["drive.contents"] != 1 || verify.Counts["drive.contents.skipped"] != 1 || verify.Counts["drive.contents.errors"] != 1 {
+		t.Fatalf("unexpected verify counts: %+v", verify.Counts)
+	}
+}
+
 func TestCommitChangesIgnoresGlobalCommitSigning(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()

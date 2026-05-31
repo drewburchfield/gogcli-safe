@@ -143,6 +143,7 @@ func (c *BackupExportCmd) Run(ctx context.Context) error {
 			return initErr
 		}
 	}
+	fillMissingBackupCounts(result.Counts, manifest.Counts)
 	files, err := countExportFiles(outDir)
 	if err != nil {
 		return err
@@ -163,6 +164,19 @@ func (c *BackupExportCmd) Run(ctx context.Context) error {
 		u.Out().Linef("count.%s\t%d", key, result.Counts[key])
 	}
 	return nil
+}
+
+func fillMissingBackupCounts(out map[string]int, counts map[string]int) {
+	for key, value := range counts {
+		if _, exists := out[key]; exists && !backupManifestCountOverridesShardCount(key) {
+			continue
+		}
+		out[key] = value
+	}
+}
+
+func backupManifestCountOverridesShardCount(key string) bool {
+	return key == "drive.contents"
 }
 
 func prettyJSONL(data []byte) ([]byte, error) {
