@@ -81,3 +81,29 @@ func TestSheetsFreezeCmd(t *testing.T) {
 		t.Fatalf("expected frozenColumnCount=2, got %#v", gridProps)
 	}
 }
+
+func TestSheetsFreezeCmdRejectsNegativeProvidedCounts(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		args []string
+		want string
+	}{
+		{
+			name: "rows",
+			args: []string{"s1", "--rows=-1"},
+			want: "--rows must be >= 0",
+		},
+		{
+			name: "cols",
+			args: []string{"s1", "--cols=-1"},
+			want: "--cols must be >= 0",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := runKong(t, &SheetsFreezeCmd{}, tc.args, context.Background(), &RootFlags{})
+			if err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("expected %q error, got %v", tc.want, err)
+			}
+		})
+	}
+}

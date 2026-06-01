@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/alecthomas/kong"
 	"google.golang.org/api/sheets/v4"
 )
 
@@ -15,18 +16,20 @@ type SheetsFreezeCmd struct {
 	Sheet         string `name:"sheet" help:"Sheet name (defaults to the first sheet)"`
 }
 
-func (c *SheetsFreezeCmd) Run(ctx context.Context, flags *RootFlags) error {
+func (c *SheetsFreezeCmd) Run(ctx context.Context, kctx *kong.Context, flags *RootFlags) error {
 	spreadsheetID := normalizeGoogleID(strings.TrimSpace(c.SpreadsheetID))
 	if spreadsheetID == "" {
 		return usage("empty spreadsheetId")
 	}
-	if c.Rows < -1 {
+	rowsProvided := flagProvided(kctx, "rows")
+	colsProvided := flagProvided(kctx, "cols")
+	if rowsProvided && c.Rows < 0 {
 		return usage("--rows must be >= 0")
 	}
-	if c.Cols < -1 {
+	if colsProvided && c.Cols < 0 {
 		return usage("--cols must be >= 0")
 	}
-	if c.Rows == -1 && c.Cols == -1 {
+	if !rowsProvided && !colsProvided {
 		return usage("provide --rows and/or --cols")
 	}
 
