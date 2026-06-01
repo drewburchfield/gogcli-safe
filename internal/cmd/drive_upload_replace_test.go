@@ -257,6 +257,8 @@ func TestDriveUpload_Replace_GoogleWorkspaceUnsupported(t *testing.T) {
 		t.Fatalf("expected error")
 	} else if !strings.Contains(err.Error(), "Google Workspace") {
 		t.Fatalf("unexpected error: %v", err)
+	} else if got := ExitCode(err); got != 2 {
+		t.Fatalf("expected usage exit code 2, got %d (err=%v)", got, err)
 	}
 }
 

@@ -306,7 +306,7 @@ func runDriveReplaceUpload(ctx context.Context, svc *drive.Service, file io.Read
 		return err
 	}
 	if strings.HasPrefix(existing.MimeType, "application/vnd.google-apps.") {
-		return fmt.Errorf("cannot replace content for Google Workspace files (mimeType=%s)", existing.MimeType)
+		return usagef("cannot replace content for Google Workspace files (mimeType=%s)", existing.MimeType)
 	}
 
 	meta := &drive.File{}
