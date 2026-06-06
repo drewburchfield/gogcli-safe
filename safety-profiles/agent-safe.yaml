@@ -4,7 +4,9 @@
 # Allow editing, drafting, and any operation that's recoverable via trash
 # or Google's revision history. Destructive auth state mutation is blocked
 # (re-auth via the full `gog` binary, not gog-safe); additive `auth add` is
-# allowed since it only creates a new account credential.
+# allowed since it only creates a new account credential. One deliberate
+# exception to the no-permanent-delete rule: gmail.drafts.delete is allowed
+# (drafts are agent-authored scratch work, not user data worth protecting).
 #
 # This is a tighter variant of upstream's agent-safe, curated for coding-
 # agent use. Diffs from upstream: enables docs/sheets/slides edits
@@ -59,7 +61,9 @@ gmail:
     get: true
     create: true
     update: true
-    delete: false       # drafts have no trash bin
+    delete: true        # explicit exception: draft deletes are permanent (no
+                        # trash), but a draft is agent-authored scratch work, so
+                        # allow cleanup. Sends stay blocked.
     send: false
   # Admin / external-impact settings
   settings: false
