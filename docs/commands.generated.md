@@ -237,6 +237,7 @@ Generated from `gog schema --json`.
     - [`gog docs (doc) delete-tab <docId> [flags]`](commands/gog-docs-delete-tab.md) - Delete a tab from a Google Doc
     - [`gog docs (doc) edit <docId> <find> <replace> [flags]`](commands/gog-docs-edit.md) - Find and replace text in a Google Doc
     - [`gog docs (doc) export (download,dl) <docId> [flags]`](commands/gog-docs-export.md) - Export a Google Doc (pdf|docx|txt|md|html)
+    - [`gog docs (doc) find-range <docId> <text> [flags]`](commands/gog-docs-find-range.md) - Find text and print Docs API UTF-16 index ranges
     - [`gog docs (doc) find-replace <docId> <find> [<replace>] [flags]`](commands/gog-docs-find-replace.md) - Find and replace text. Supports plain text or markdown with images; use --first for a single occurrence.
     - [`gog docs (doc) format <docId> [flags]`](commands/gog-docs-format.md) - Apply text or paragraph formatting to a Google Doc
     - [`gog docs (doc) info (get,show) <docId>`](commands/gog-docs-info.md) - Get Google Doc metadata

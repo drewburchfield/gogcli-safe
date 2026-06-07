@@ -41,6 +41,7 @@ type DocsCmd struct {
 	InsertDateChip   DocsInsertDateChipCmd   `cmd:"" name:"insert-date-chip" help:"Insert a native date smart chip"`
 	InsertPageBreak  DocsInsertPageBreakCmd  `cmd:"" name:"insert-page-break" aliases:"page-break,pb" help:"Insert a page break at a specific position (or end-of-doc with --at-end)"`
 	Delete           DocsDeleteCmd           `cmd:"" name:"delete" help:"Delete text range from document"`
+	FindRange        DocsFindRangeCmd        `cmd:"" name:"find-range" help:"Find text and print Docs API UTF-16 index ranges"`
 	FindReplace      DocsFindReplaceCmd      `cmd:"" name:"find-replace" help:"Find and replace text. Supports plain text or markdown with images; use --first for a single occurrence."`
 	Update           DocsUpdateCmd           `cmd:"" name:"update" help:"Insert or replace text at a specific index or range in a Google Doc"`
 	Edit             DocsEditCmd             `cmd:"" name:"edit" help:"Find and replace text in a Google Doc"`

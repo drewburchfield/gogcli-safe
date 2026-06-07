@@ -5,6 +5,7 @@
 ### Added
 
 - Chat: add repeatable `--attach` to `chat messages send` for sending local files with Google Chat messages. (#694) — thanks @omothm.
+- Docs: add `docs find-range` to map matched text to Docs API UTF-16 index ranges. (#682) — thanks @sebsnyk.
 - Docs: add `--link` and `--no-link` to `docs format` for setting or clearing hyperlinks on matched text. (#684) — thanks @sebsnyk.
 - Slides: add `slides insert-image` to place a positioned, sized local image on an existing slide. (#695) — thanks @Czaruno.
 
