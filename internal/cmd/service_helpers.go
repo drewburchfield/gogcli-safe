@@ -30,7 +30,7 @@ func requireDriveActivityService(ctx context.Context, flags *RootFlags) (string,
 }
 
 func requireCalendarService(ctx context.Context, flags *RootFlags) (string, *calendar.Service, error) {
-	return requireGoogleService(ctx, flags, newCalendarService)
+	return requireGoogleService(ctx, flags, calendarService)
 }
 
 func requireGmailService(ctx context.Context, flags *RootFlags) (string, *gmail.Service, error) {

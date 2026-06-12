@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"google.golang.org/api/calendar/v3"
 	"google.golang.org/api/docs/v1"
 	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/gmail/v1"
@@ -26,7 +27,8 @@ func newDefaultRuntime() *app.Runtime {
 			Err: os.Stderr,
 		},
 		Services: app.Services{
-			Docs: googleapi.NewDocs,
+			Calendar: newCalendarService,
+			Docs:     googleapi.NewDocs,
 			DocsHTTP: func(ctx context.Context, account string) (*http.Client, error) {
 				return googleapi.NewHTTPClient(ctx, googleauth.ServiceDocs, account)
 			},
@@ -55,6 +57,9 @@ func normalizedRuntime(runtime *app.Runtime) *app.Runtime {
 	}
 	if normalized.IO.Err == nil {
 		normalized.IO.Err = defaults.IO.Err
+	}
+	if normalized.Services.Calendar == nil {
+		normalized.Services.Calendar = defaults.Services.Calendar
 	}
 	if normalized.Services.Drive == nil {
 		normalized.Services.Drive = defaults.Services.Drive
@@ -104,6 +109,13 @@ func commandIO(ctx context.Context) app.IO {
 
 func stdoutWriter(ctx context.Context) io.Writer {
 	return commandIO(ctx).Out
+}
+
+func calendarService(ctx context.Context, account string) (*calendar.Service, error) {
+	if runtime, ok := app.FromContext(ctx); ok && runtime.Services.Calendar != nil {
+		return runtime.Services.Calendar(ctx, account)
+	}
+	return newCalendarService(ctx, account)
 }
 
 func driveService(ctx context.Context, account string) (*drive.Service, error) {

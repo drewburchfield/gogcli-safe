@@ -53,7 +53,7 @@ func (c *CalendarTeamCmd) Run(ctx context.Context, flags *RootFlags) error {
 	}
 
 	// Get calendar service first (for timezone resolution)
-	calSvc, err := newCalendarService(ctx, account)
+	calSvc, err := calendarService(ctx, account)
 	if err != nil {
 		return fmt.Errorf("calendar service: %w", err)
 	}

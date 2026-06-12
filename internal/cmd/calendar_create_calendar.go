@@ -49,7 +49,7 @@ func (c *CalendarCreateCalendarCmd) Run(ctx context.Context, flags *RootFlags) e
 		return err
 	}
 
-	svc, err := newCalendarService(ctx, account)
+	svc, err := calendarService(ctx, account)
 	if err != nil {
 		return err
 	}

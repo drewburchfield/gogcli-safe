@@ -21,7 +21,7 @@ func (c *CalendarColorsCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return err
 	}
 
-	svc, err := newCalendarService(ctx, account)
+	svc, err := calendarService(ctx, account)
 	if err != nil {
 		return err
 	}

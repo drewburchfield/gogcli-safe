@@ -40,7 +40,7 @@ func (c *CalendarTimeCmd) Run(ctx context.Context, flags *RootFlags) error {
 		tz = loc.String()
 	} else {
 		// Fall back to Google Calendar's timezone
-		svc, err := newCalendarService(ctx, account)
+		svc, err := calendarService(ctx, account)
 		if err != nil {
 			return err
 		}

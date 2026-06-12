@@ -59,7 +59,7 @@ func (c *CalendarEventsCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return usage("calendarId not allowed with --cal/--calendars")
 	}
 
-	svc, err := newCalendarService(ctx, account)
+	svc, err := calendarService(ctx, account)
 	if err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (c *CalendarEventCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return usage("empty eventId")
 	}
 
-	svc, err := newCalendarService(ctx, account)
+	svc, err := calendarService(ctx, account)
 	if err != nil {
 		return err
 	}

@@ -90,7 +90,7 @@ func buildCalendarBackupSnapshot(ctx context.Context, flags *RootFlags, shardMax
 	if err != nil {
 		return backup.Snapshot{}, err
 	}
-	svc, err := newCalendarService(ctx, account)
+	svc, err := calendarService(ctx, account)
 	if err != nil {
 		return backup.Snapshot{}, err
 	}
