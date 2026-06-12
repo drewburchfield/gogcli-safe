@@ -9,19 +9,21 @@ import (
 	"strings"
 	"testing"
 
-	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
-
-	"github.com/steipete/gogcli/internal/ui"
 )
 
-func TestSheetsNamedRangesAdd(t *testing.T) {
-	origNew := newSheetsService
-	t.Cleanup(func() { newSheetsService = origNew })
+func newSheetsNamedRangesTestContext(t *testing.T, handler http.Handler) context.Context {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	t.Cleanup(srv.Close)
+	svc := newSheetsServiceFromServer(t, srv)
+	return withSheetsTestService(newCmdRuntimeOutputContext(t, io.Discard, io.Discard), svc)
+}
 
+func TestSheetsNamedRangesAdd(t *testing.T) {
 	var gotAdd *sheets.AddNamedRangeRequest
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/sheets/v4")
 		path = strings.TrimPrefix(path, "/v4")
 		switch {
@@ -68,25 +70,10 @@ func TestSheetsNamedRangesAdd(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
-	}))
-	defer srv.Close()
-
-	svc, err := sheets.NewService(context.Background(),
-		option.WithoutAuthentication(),
-		option.WithHTTPClient(srv.Client()),
-		option.WithEndpoint(srv.URL+"/"),
-	)
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
-	newSheetsService = func(context.Context, string) (*sheets.Service, error) { return svc, nil }
+	})
 
 	flags := &RootFlags{Account: "a@b.com"}
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
+	ctx := newSheetsNamedRangesTestContext(t, handler)
 	cmd := &SheetsNamedRangesAddCmd{}
 	if err := runKong(t, cmd, []string{"s1", "MyNamedRange", "Sheet1!B2:C3"}, ctx, flags); err != nil {
 		t.Fatalf("add: %v", err)
@@ -110,13 +97,10 @@ func TestSheetsNamedRangesAdd(t *testing.T) {
 }
 
 func TestSheetsNamedRangesUpdateName(t *testing.T) {
-	origNew := newSheetsService
-	t.Cleanup(func() { newSheetsService = origNew })
-
 	var gotUpdate *sheets.UpdateNamedRangeRequest
 	getCount := 0
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/sheets/v4")
 		path = strings.TrimPrefix(path, "/v4")
 		switch {
@@ -163,25 +147,10 @@ func TestSheetsNamedRangesUpdateName(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
-	}))
-	defer srv.Close()
-
-	svc, err := sheets.NewService(context.Background(),
-		option.WithoutAuthentication(),
-		option.WithHTTPClient(srv.Client()),
-		option.WithEndpoint(srv.URL+"/"),
-	)
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
-	newSheetsService = func(context.Context, string) (*sheets.Service, error) { return svc, nil }
+	})
 
 	flags := &RootFlags{Account: "a@b.com"}
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
+	ctx := newSheetsNamedRangesTestContext(t, handler)
 	cmd := &SheetsNamedRangesUpdateCmd{}
 	if err := runKong(t, cmd, []string{"s1", "OldName", "--name", "NewName"}, ctx, flags); err != nil {
 		t.Fatalf("update: %v", err)
@@ -202,12 +171,9 @@ func TestSheetsNamedRangesUpdateName(t *testing.T) {
 }
 
 func TestSheetsNamedRangesDelete(t *testing.T) {
-	origNew := newSheetsService
-	t.Cleanup(func() { newSheetsService = origNew })
-
 	var gotDelete *sheets.DeleteNamedRangeRequest
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/sheets/v4")
 		path = strings.TrimPrefix(path, "/v4")
 		switch {
@@ -236,25 +202,10 @@ func TestSheetsNamedRangesDelete(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
-	}))
-	defer srv.Close()
-
-	svc, err := sheets.NewService(context.Background(),
-		option.WithoutAuthentication(),
-		option.WithHTTPClient(srv.Client()),
-		option.WithEndpoint(srv.URL+"/"),
-	)
-	if err != nil {
-		t.Fatalf("NewService: %v", err)
-	}
-	newSheetsService = func(context.Context, string) (*sheets.Service, error) { return svc, nil }
+	})
 
 	flags := &RootFlags{Account: "a@b.com"}
-	u, uiErr := ui.New(ui.Options{Stdout: io.Discard, Stderr: io.Discard, Color: "never"})
-	if uiErr != nil {
-		t.Fatalf("ui.New: %v", uiErr)
-	}
-	ctx := ui.WithUI(context.Background(), u)
+	ctx := newSheetsNamedRangesTestContext(t, handler)
 	cmd := &SheetsNamedRangesDeleteCmd{}
 	if err := runKong(t, cmd, []string{"s1", "ToDelete"}, ctx, flags); err != nil {
 		t.Fatalf("delete: %v", err)
