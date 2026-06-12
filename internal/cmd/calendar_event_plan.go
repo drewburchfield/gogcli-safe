@@ -26,6 +26,69 @@ type calendarCreatePlan struct {
 	Event       *calendar.Event
 }
 
+type calendarUpdateFields struct {
+	Summary               bool
+	Description           bool
+	Location              bool
+	LocationSearch        bool
+	PlaceID               bool
+	From                  bool
+	To                    bool
+	StartTimezone         bool
+	EndTimezone           bool
+	AllDay                bool
+	Attendees             bool
+	AddAttendee           bool
+	Attachments           bool
+	Recurrence            bool
+	Reminders             bool
+	ColorID               bool
+	Visibility            bool
+	Transparency          bool
+	GuestsCanInviteOthers bool
+	GuestsCanModify       bool
+	GuestsCanSeeOthers    bool
+	WithMeet              bool
+	RegenerateMeet        bool
+	WithZoom              bool
+	RegenerateZoom        bool
+	RemoveZoom            bool
+	PrivateProps          bool
+	SharedProps           bool
+	FocusAutoDecline      bool
+	FocusDeclineMessage   bool
+	FocusChatStatus       bool
+	OOOAutoDecline        bool
+	OOODeclineMessage     bool
+	WorkingLocationType   bool
+	WorkingOfficeLabel    bool
+	WorkingBuildingID     bool
+	WorkingFloorID        bool
+	WorkingDeskID         bool
+	WorkingCustomLabel    bool
+}
+
+func (f calendarUpdateFields) focusEventType() bool {
+	return f.FocusAutoDecline || f.FocusDeclineMessage || f.FocusChatStatus
+}
+
+func (f calendarUpdateFields) outOfOfficeEventType() bool {
+	return f.OOOAutoDecline || f.OOODeclineMessage
+}
+
+func (f calendarUpdateFields) workingLocationEventType() bool {
+	return f.WorkingLocationType ||
+		f.WorkingOfficeLabel ||
+		f.WorkingBuildingID ||
+		f.WorkingFloorID ||
+		f.WorkingDeskID ||
+		f.WorkingCustomLabel
+}
+
+func (f calendarUpdateFields) zoomMutation() bool {
+	return f.WithZoom || f.RegenerateZoom || f.RemoveZoom
+}
+
 func buildCalendarCreatePlan(c *CalendarCreateCmd) (*calendarCreatePlan, error) {
 	eventType, err := c.resolveCreateEventType()
 	if err != nil {
