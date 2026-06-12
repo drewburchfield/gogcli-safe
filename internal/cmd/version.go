@@ -4,7 +4,6 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"os"
 	"runtime/debug"
 	"strings"
 
@@ -58,13 +57,14 @@ func VersionString() string {
 type VersionCmd struct{}
 
 func (c *VersionCmd) Run(ctx context.Context) error {
+	stdout := stdoutWriter(ctx)
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdout, map[string]any{
 			"version": resolvedVersion(),
 			"commit":  strings.TrimSpace(commit),
 			"date":    strings.TrimSpace(date),
 		})
 	}
-	fmt.Fprintln(os.Stdout, VersionString())
+	fmt.Fprintln(stdout, VersionString())
 	return nil
 }

@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"strings"
 
 	"github.com/alecthomas/kong"
 
+	"github.com/steipete/gogcli/internal/app"
 	"github.com/steipete/gogcli/internal/authclient"
 	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/errfmt"
@@ -105,6 +107,13 @@ type CLI struct {
 type exitPanic struct{ code int }
 
 func Execute(args []string) (err error) {
+	return executeWithRuntime(args, newDefaultRuntime())
+}
+
+func executeWithRuntime(args []string, runtime *app.Runtime) (err error) {
+	runtime = normalizedRuntime(runtime)
+	runtimeIO := runtime.IO
+
 	if len(args) == 0 {
 		args = []string{"--help"}
 	}
@@ -116,15 +125,15 @@ func Execute(args []string) (err error) {
 	if home, ok := preScanHomeArg(args); ok {
 		restoreHome, homeErr := config.SetHomeOverride(home)
 		if homeErr != nil {
-			return reportEarlyError(newUsageError(homeErr))
+			return reportEarlyError(runtimeIO.Err, newUsageError(homeErr))
 		}
 		preHomeApplied = true
 		defer restoreHome()
 	}
 
-	parser, cli, err := newParser(helpDescription())
+	parser, cli, err := newParserWithWriters(helpDescription(), runtimeIO.Out, runtimeIO.Err)
 	if err != nil {
-		return reportEarlyError(err)
+		return reportEarlyError(runtimeIO.Err, err)
 	}
 
 	defer func() {
@@ -143,54 +152,57 @@ func Execute(args []string) (err error) {
 
 	kctx, err := parser.Parse(args)
 	if err != nil {
-		return reportEarlyError(wrapParseError(err))
+		return reportEarlyError(runtimeIO.Err, wrapParseError(err))
 	}
 	applyExplicitOutputModePrecedence(kctx, &cli.RootFlags)
 	if !preHomeApplied && strings.TrimSpace(cli.Home) != "" {
 		restoreHome, homeErr := config.SetHomeOverride(cli.Home)
 		if homeErr != nil {
-			return reportEarlyError(newUsageError(homeErr))
+			return reportEarlyError(runtimeIO.Err, newUsageError(homeErr))
 		}
 		defer restoreHome()
 	}
 
 	if err = enforceBakedSafetyProfile(kctx); err != nil {
-		return reportEarlyError(err)
+		return reportEarlyError(runtimeIO.Err, err)
 	}
 	if err = enforceEnabledCommands(kctx, cli.EnableCommands, cli.EnableCommandsExact); err != nil {
-		return reportEarlyError(err)
+		return reportEarlyError(runtimeIO.Err, err)
 	}
 	if err = enforceDisabledCommands(kctx, cli.DisableCommands); err != nil {
-		return reportEarlyError(err)
+		return reportEarlyError(runtimeIO.Err, err)
 	}
 	if err = enforceGmailNoSend(kctx, &cli.RootFlags); err != nil {
-		return reportEarlyError(err)
+		return reportEarlyError(runtimeIO.Err, err)
 	}
 
 	logLevel := slog.LevelWarn
 	if cli.Verbose {
 		logLevel = slog.LevelDebug
 	}
-	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(runtimeIO.Err, &slog.HandlerOptions{
 		Level: logLevel,
 	})))
+	defer slog.SetDefault(previousLogger)
 
 	// Optional automatic JSON output when stdout is piped/non-TTY.
 	// We intentionally do this after parsing so `--plain` can override it.
-	if envBool("GOG_AUTO_JSON") && !cli.JSON && !cli.Plain && !termutil.IsTerminal(os.Stdout) {
+	if envBool("GOG_AUTO_JSON") && !cli.JSON && !cli.Plain && !isTerminalWriter(runtimeIO.Out) {
 		cli.JSON = true
 	}
 
 	mode, err := outfmt.FromFlags(cli.JSON, cli.Plain)
 	if err != nil {
-		return reportEarlyError(newUsageError(err))
+		return reportEarlyError(runtimeIO.Err, newUsageError(err))
 	}
 	err = validateJSONTransformFlags(mode, &cli.RootFlags)
 	if err != nil {
-		return reportEarlyError(err)
+		return reportEarlyError(runtimeIO.Err, err)
 	}
 
 	ctx := context.Background()
+	ctx = app.WithRuntime(ctx, runtime)
 	ctx = outfmt.WithMode(ctx, mode)
 	ctx = outfmt.WithJSONTransform(ctx, outfmt.JSONTransform{
 		ResultsOnly: cli.ResultsOnly,
@@ -211,12 +223,12 @@ func Execute(args []string) (err error) {
 	}
 
 	u, err := ui.New(ui.Options{
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
+		Stdout: runtimeIO.Out,
+		Stderr: runtimeIO.Err,
 		Color:  uiColor,
 	})
 	if err != nil {
-		return reportEarlyError(newUsageError(err))
+		return reportEarlyError(runtimeIO.Err, newUsageError(err))
 	}
 	ctx = ui.WithUI(ctx, u)
 
@@ -242,7 +254,7 @@ func Execute(args []string) (err error) {
 	}
 	msg := strings.TrimSpace(errfmt.Format(err))
 	if msg != "" {
-		_, _ = fmt.Fprintln(os.Stderr, msg)
+		_, _ = fmt.Fprintln(runtimeIO.Err, msg)
 	}
 	return err
 }
@@ -315,15 +327,20 @@ func applyExplicitOutputModePrecedence(kctx *kong.Context, flags *RootFlags) {
 	}
 }
 
-func reportEarlyError(err error) error {
+func reportEarlyError(w io.Writer, err error) error {
 	if err == nil {
 		return nil
 	}
 	msg := strings.TrimSpace(errfmt.Format(err))
 	if msg != "" {
-		_, _ = fmt.Fprintln(os.Stderr, msg)
+		_, _ = fmt.Fprintln(w, msg)
 	}
 	return err
+}
+
+func isTerminalWriter(w io.Writer) bool {
+	file, ok := w.(*os.File)
+	return ok && termutil.IsTerminal(file)
 }
 
 func rewriteDesirePathArgs(args []string) []string {
@@ -504,6 +521,10 @@ func boolString(v bool) string {
 }
 
 func newParser(description string) (*kong.Kong, *CLI, error) {
+	return newParserWithWriters(description, os.Stdout, os.Stderr)
+}
+
+func newParserWithWriters(description string, stdout, stderr io.Writer) (*kong.Kong, *CLI, error) {
 	envMode := outfmt.FromEnv()
 	vars := kong.Vars{
 		"auth_services":          googleauth.UserServiceCSV(),
@@ -528,7 +549,7 @@ func newParser(description string) (*kong.Kong, *CLI, error) {
 		kong.ConfigureHelp(helpOptions()),
 		kong.Help(helpPrinter),
 		kong.Vars(vars),
-		kong.Writers(os.Stdout, os.Stderr),
+		kong.Writers(stdout, stderr),
 		kong.Exit(func(code int) { panic(exitPanic{code: code}) }),
 	)
 	if err != nil {
