@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -84,7 +83,7 @@ func (c *CalendarConflictsCmd) Run(ctx context.Context, flags *RootFlags) error 
 	conflicts := detectConflicts(resp.Calendars)
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"conflicts": conflicts,
 			"count":     len(conflicts),
 		})
@@ -95,8 +94,9 @@ func (c *CalendarConflictsCmd) Run(ctx context.Context, flags *RootFlags) error 
 		return nil
 	}
 
-	fmt.Printf("CONFLICTS FOUND: %d\n\n", len(conflicts))
-	tw := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
+	stdout := stdoutWriter(ctx)
+	fmt.Fprintf(stdout, "CONFLICTS FOUND: %d\n\n", len(conflicts))
+	tw := tabwriter.NewWriter(stdout, 0, 4, 2, ' ', 0)
 	fmt.Fprintln(tw, "START\tEND\tCALENDARS")
 	for _, c := range conflicts {
 		fmt.Fprintf(tw, "%s\t%s\t%s\n", c.Start, c.End, strings.Join(c.Calendars, ", "))

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -24,11 +23,12 @@ const (
 // CalendarProposeTimeCmd generates a browser URL for proposing a new meeting time.
 // This is a workaround for a Google Calendar API limitation (since 2018).
 type CalendarProposeTimeCmd struct {
-	CalendarID string `arg:"" name:"calendarId" help:"Calendar ID"`
-	EventID    string `arg:"" name:"eventId" help:"Event ID"`
-	Open       bool   `name:"open" help:"Open the URL in browser automatically"`
-	Decline    bool   `name:"decline" help:"Also decline the event (notifies organizer)"`
-	Comment    string `name:"comment" help:"Comment to include with decline (implies --decline)"`
+	CalendarID  string `arg:"" name:"calendarId" help:"Calendar ID"`
+	EventID     string `arg:"" name:"eventId" help:"Event ID"`
+	Open        bool   `name:"open" help:"Open the URL in browser automatically"`
+	Decline     bool   `name:"decline" help:"Also decline the event (notifies organizer)"`
+	Comment     string `name:"comment" help:"Comment to include with decline (implies --decline)"`
+	openBrowser func(context.Context, string) error
 }
 
 func (c *CalendarProposeTimeCmd) Run(ctx context.Context, flags *RootFlags) error {
@@ -156,7 +156,7 @@ func (c *CalendarProposeTimeCmd) Run(ctx context.Context, flags *RootFlags) erro
 				result["comment"] = strings.TrimSpace(c.Comment)
 			}
 		}
-		return outfmt.WriteJSON(ctx, os.Stdout, result)
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), result)
 	}
 
 	// Text output
@@ -197,7 +197,11 @@ func (c *CalendarProposeTimeCmd) Run(ctx context.Context, flags *RootFlags) erro
 	if c.Open {
 		u.Out().Linef("")
 		u.Out().Linef("Opening browser...")
-		if err := openProposeTimeBrowser(proposeURL); err != nil {
+		openBrowser := c.openBrowser
+		if openBrowser == nil {
+			openBrowser = openProposeTimeBrowser
+		}
+		if err := openBrowser(ctx, proposeURL); err != nil {
 			u.Err().Linef("Failed to open browser: %v", err)
 			u.Err().Linef("Please open the propose_url manually.")
 		}
@@ -207,15 +211,15 @@ func (c *CalendarProposeTimeCmd) Run(ctx context.Context, flags *RootFlags) erro
 }
 
 // openProposeTimeBrowser opens the URL in the default browser.
-var openProposeTimeBrowser = func(url string) error {
+func openProposeTimeBrowser(ctx context.Context, url string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", url) //nolint:gosec // executable is fixed; arg is generated propose URL
+		cmd = exec.CommandContext(ctx, "open", url) //nolint:gosec // executable is fixed; arg is generated propose URL
 	case literalWindows:
-		cmd = exec.Command("rundll32", "url.dll,FileProtocolHandler", url) //nolint:gosec // executable is fixed; arg is generated propose URL
+		cmd = exec.CommandContext(ctx, "rundll32", "url.dll,FileProtocolHandler", url) //nolint:gosec // executable is fixed; arg is generated propose URL
 	default:
-		cmd = exec.Command("xdg-open", url) //nolint:gosec // executable is fixed; arg is generated propose URL
+		cmd = exec.CommandContext(ctx, "xdg-open", url) //nolint:gosec // executable is fixed; arg is generated propose URL
 	}
 	return cmd.Start()
 }
