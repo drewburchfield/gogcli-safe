@@ -37,7 +37,7 @@ func TestCalendarUpdateBuildPatch(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	patch, changed, err := cmd.buildUpdatePatch(calendarUpdateFieldsFromKong(kctx))
+	patch, changed, err := buildCalendarUpdatePatch(calendarUpdateInputFromCommand(cmd), calendarUpdateFieldsFromKong(kctx))
 	if err != nil {
 		t.Fatalf("buildUpdatePatch: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestCalendarUpdateBuildPatch_ClearFields(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	patch, changed, err := cmd.buildUpdatePatch(calendarUpdateFieldsFromKong(kctx))
+	patch, changed, err := buildCalendarUpdatePatch(calendarUpdateInputFromCommand(cmd), calendarUpdateFieldsFromKong(kctx))
 	if err != nil {
 		t.Fatalf("buildUpdatePatch: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestCalendarUpdateBuildPatch_Attachments(t *testing.T) {
 			t.Fatalf("parse: %v", err)
 		}
 
-		patch, changed, err := cmd.buildUpdatePatch(calendarUpdateFieldsFromKong(kctx))
+		patch, changed, err := buildCalendarUpdatePatch(calendarUpdateInputFromCommand(cmd), calendarUpdateFieldsFromKong(kctx))
 		if err != nil {
 			t.Fatalf("buildUpdatePatch: %v", err)
 		}
@@ -127,7 +127,7 @@ func TestCalendarUpdateBuildPatch_Attachments(t *testing.T) {
 			t.Fatalf("parse: %v", err)
 		}
 
-		patch, changed, err := cmd.buildUpdatePatch(calendarUpdateFieldsFromKong(kctx))
+		patch, changed, err := buildCalendarUpdatePatch(calendarUpdateInputFromCommand(cmd), calendarUpdateFieldsFromKong(kctx))
 		if err != nil {
 			t.Fatalf("buildUpdatePatch: %v", err)
 		}

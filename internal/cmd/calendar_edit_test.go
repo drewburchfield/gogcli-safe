@@ -44,7 +44,7 @@ func TestCalendarUpdatePatchClearsRecurrence(t *testing.T) {
 	cmd := &CalendarUpdateCmd{}
 	kctx := parseKongContext(t, cmd, []string{"cal1", "evt1", "--rrule", " "})
 
-	patch, _, err := cmd.buildUpdatePatch(calendarUpdateFieldsFromKong(kctx))
+	patch, _, err := buildCalendarUpdatePatch(calendarUpdateInputFromCommand(cmd), calendarUpdateFieldsFromKong(kctx))
 	if err != nil {
 		t.Fatalf("buildUpdatePatch: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestCalendarUpdatePatchClearsReminders(t *testing.T) {
 	cmd := &CalendarUpdateCmd{}
 	kctx := parseKongContext(t, cmd, []string{"cal1", "evt1", "--reminder", " "})
 
-	patch, _, err := cmd.buildUpdatePatch(calendarUpdateFieldsFromKong(kctx))
+	patch, _, err := buildCalendarUpdatePatch(calendarUpdateInputFromCommand(cmd), calendarUpdateFieldsFromKong(kctx))
 	if err != nil {
 		t.Fatalf("buildUpdatePatch: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestCalendarUpdatePatchExplicitTimezones(t *testing.T) {
 		"--end-timezone", "America/New_York",
 	})
 
-	patch, changed, err := cmd.buildUpdatePatch(calendarUpdateFieldsFromKong(kctx))
+	patch, changed, err := buildCalendarUpdatePatch(calendarUpdateInputFromCommand(cmd), calendarUpdateFieldsFromKong(kctx))
 	if err != nil {
 		t.Fatalf("buildUpdatePatch: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestCalendarUpdatePatchTimezoneRequiresTimeField(t *testing.T) {
 		"--start-timezone", "Europe/Rome",
 	})
 
-	if _, _, err := cmd.buildUpdatePatch(calendarUpdateFieldsFromKong(kctx)); err == nil {
+	if _, _, err := buildCalendarUpdatePatch(calendarUpdateInputFromCommand(cmd), calendarUpdateFieldsFromKong(kctx)); err == nil {
 		t.Fatalf("expected --start-timezone without --from to fail")
 	}
 }

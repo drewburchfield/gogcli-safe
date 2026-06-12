@@ -266,10 +266,58 @@ func calendarUpdateFieldsFromKong(kctx *kong.Context) calendarUpdateFields {
 	}
 }
 
+func calendarUpdateInputFromCommand(c *CalendarUpdateCmd) calendarUpdateInput {
+	return calendarUpdateInput{
+		CalendarID:            c.CalendarID,
+		EventID:               c.EventID,
+		Summary:               c.Summary,
+		From:                  c.From,
+		To:                    c.To,
+		StartTimezone:         c.StartTimezone,
+		EndTimezone:           c.EndTimezone,
+		Description:           c.Description,
+		Location:              c.Location,
+		LocationSearch:        c.LocationSearch,
+		PlaceID:               c.PlaceID,
+		PlaceLanguage:         c.PlaceLanguage,
+		PlaceRegion:           c.PlaceRegion,
+		Attendees:             c.Attendees,
+		AddAttendee:           c.AddAttendee,
+		Attachments:           c.Attachments,
+		AllDay:                c.AllDay,
+		Recurrence:            c.Recurrence,
+		Reminders:             c.Reminders,
+		ColorID:               c.ColorId,
+		Visibility:            c.Visibility,
+		Transparency:          c.Transparency,
+		GuestsCanInviteOthers: c.GuestsCanInviteOthers,
+		GuestsCanModify:       c.GuestsCanModify,
+		GuestsCanSeeOthers:    c.GuestsCanSeeOthers,
+		Scope:                 c.Scope,
+		OriginalStartTime:     c.OriginalStartTime,
+		PrivateProps:          c.PrivateProps,
+		SharedProps:           c.SharedProps,
+		EventType:             c.EventType,
+		FocusAutoDecline:      c.FocusAutoDecline,
+		FocusDeclineMessage:   c.FocusDeclineMessage,
+		FocusChatStatus:       c.FocusChatStatus,
+		OOOAutoDecline:        c.OOOAutoDecline,
+		OOODeclineMessage:     c.OOODeclineMessage,
+		WorkingLocationType:   c.WorkingLocationType,
+		WorkingOfficeLabel:    c.WorkingOfficeLabel,
+		WorkingBuildingID:     c.WorkingBuildingId,
+		WorkingFloorID:        c.WorkingFloorId,
+		WorkingDeskID:         c.WorkingDeskId,
+		WorkingCustomLabel:    c.WorkingCustomLabel,
+		SendUpdates:           c.SendUpdates,
+		ResolvedPlace:         c.resolvedPlace,
+	}
+}
+
 func (c *CalendarUpdateCmd) Run(ctx context.Context, kctx *kong.Context, flags *RootFlags) error {
 	ctx = withZoomIncludePasswords(ctx, c.IncludePasswords)
 	fields := calendarUpdateFieldsFromKong(kctx)
-	plan, err := buildCalendarUpdatePlan(c, fields)
+	plan, err := buildCalendarUpdatePlan(calendarUpdateInputFromCommand(c), fields)
 	if err != nil {
 		return err
 	}
@@ -280,7 +328,7 @@ func (c *CalendarUpdateCmd) Run(ctx context.Context, kctx *kong.Context, flags *
 		if placeErr := c.resolvePlace(ctx, fields); placeErr != nil {
 			return placeErr
 		}
-		plan, err = buildCalendarUpdatePlan(c, fields)
+		plan, err = buildCalendarUpdatePlan(calendarUpdateInputFromCommand(c), fields)
 		if err != nil {
 			return err
 		}
@@ -373,20 +421,20 @@ func (c *CalendarUpdateCmd) Run(ctx context.Context, kctx *kong.Context, flags *
 	return mutation.writeEvent(ctx, updated)
 }
 
-func (c *CalendarUpdateCmd) buildUpdatePatch(fields calendarUpdateFields) (*calendar.Event, bool, error) {
+func buildCalendarUpdatePatch(input calendarUpdateInput, fields calendarUpdateFields) (*calendar.Event, bool, error) {
 	patch := &calendar.Event{}
 	changed := false
 
-	eventType, eventTypeRequested, focusFlags, oooFlags, workingFlags, err := c.resolveUpdateEventType(fields)
+	eventType, eventTypeRequested, focusFlags, oooFlags, workingFlags, err := resolveUpdateEventType(input, fields)
 	if err != nil {
 		return nil, false, err
 	}
 
-	if c.applyTextFields(fields, patch) {
+	if applyUpdateTextFields(input, fields, patch) {
 		changed = true
 	}
 
-	timeChanged, err := c.applyTimeFields(fields, patch, eventType)
+	timeChanged, err := applyUpdateTimeFields(input, fields, patch, eventType)
 	if err != nil {
 		return nil, false, err
 	}
@@ -394,19 +442,19 @@ func (c *CalendarUpdateCmd) buildUpdatePatch(fields calendarUpdateFields) (*cale
 		changed = true
 	}
 
-	if c.applyAttendees(fields, patch) {
+	if applyUpdateAttendees(input, fields, patch) {
 		changed = true
 	}
 
-	if c.applyAttachments(fields, patch) {
+	if applyUpdateAttachments(input, fields, patch) {
 		changed = true
 	}
 
-	if c.applyRecurrence(fields, patch) {
+	if applyUpdateRecurrence(input, fields, patch) {
 		changed = true
 	}
 
-	remindersChanged, err := c.applyReminders(fields, patch)
+	remindersChanged, err := applyUpdateReminders(input, fields, patch)
 	if err != nil {
 		return nil, false, err
 	}
@@ -414,7 +462,7 @@ func (c *CalendarUpdateCmd) buildUpdatePatch(fields calendarUpdateFields) (*cale
 		changed = true
 	}
 
-	displayChanged, err := c.applyDisplayOptions(fields, patch)
+	displayChanged, err := applyUpdateDisplayOptions(input, fields, patch)
 	if err != nil {
 		return nil, false, err
 	}
@@ -422,23 +470,23 @@ func (c *CalendarUpdateCmd) buildUpdatePatch(fields calendarUpdateFields) (*cale
 		changed = true
 	}
 
-	if c.applyGuestOptions(fields, patch) {
+	if applyUpdateGuestOptions(input, fields, patch) {
 		changed = true
 	}
 
-	if c.applyConferenceData(fields, patch) {
+	if applyUpdateConferenceData(fields, patch) {
 		changed = true
 	}
 
-	if c.applyExtendedProperties(fields, patch) {
+	if applyUpdateExtendedProperties(input, fields, patch) {
 		changed = true
 	}
-	if c.resolvedPlace != nil {
-		applyCalendarPlaceProperties(patch, c.resolvedPlace)
+	if input.ResolvedPlace != nil {
+		applyCalendarPlaceProperties(patch, input.ResolvedPlace)
 		changed = true
 	}
 
-	eventTypeChanged, err := c.applyEventTypeProperties(fields, patch, eventType, eventTypeRequested, focusFlags, oooFlags, workingFlags)
+	eventTypeChanged, err := applyUpdateEventTypeProperties(input, fields, patch, eventType, eventTypeRequested, focusFlags, oooFlags, workingFlags)
 	if err != nil {
 		return nil, false, err
 	}
@@ -449,36 +497,36 @@ func (c *CalendarUpdateCmd) buildUpdatePatch(fields calendarUpdateFields) (*cale
 	return patch, changed, nil
 }
 
-func (c *CalendarUpdateCmd) resolveUpdateEventType(fields calendarUpdateFields) (string, bool, bool, bool, bool, error) {
+func resolveUpdateEventType(input calendarUpdateInput, fields calendarUpdateFields) (string, bool, bool, bool, bool, error) {
 	focusFlags := fields.focusEventType()
 	oooFlags := fields.outOfOfficeEventType()
 	workingFlags := fields.workingLocationEventType()
-	eventType, err := resolveEventType(c.EventType, focusFlags, oooFlags, workingFlags)
+	eventType, err := resolveEventType(input.EventType, focusFlags, oooFlags, workingFlags)
 	if err != nil {
 		return "", false, false, false, false, err
 	}
 	return eventType, eventType != "", focusFlags, oooFlags, workingFlags, nil
 }
 
-func (c *CalendarUpdateCmd) applyTextFields(fields calendarUpdateFields, patch *calendar.Event) bool {
+func applyUpdateTextFields(input calendarUpdateInput, fields calendarUpdateFields, patch *calendar.Event) bool {
 	changed := false
 	if fields.Summary {
-		patch.Summary = strings.TrimSpace(c.Summary)
+		patch.Summary = strings.TrimSpace(input.Summary)
 		changed = true
 	}
 	if fields.Description {
-		patch.Description = strings.TrimSpace(c.Description)
+		patch.Description = strings.TrimSpace(input.Description)
 		if patch.Description == "" {
 			patch.ForceSendFields = appendForceSendField(patch.ForceSendFields, "Description")
 		}
 		changed = true
 	}
 	if fields.Location {
-		patch.Location = strings.TrimSpace(c.Location)
+		patch.Location = strings.TrimSpace(input.Location)
 		changed = true
 	}
-	if c.resolvedPlace != nil {
-		patch.Location = formatCalendarPlaceLocation(c.resolvedPlace)
+	if input.ResolvedPlace != nil {
+		patch.Location = formatCalendarPlaceLocation(input.ResolvedPlace)
 		changed = true
 	}
 	return changed
@@ -503,7 +551,7 @@ func resolveUpdateAllDay(value string, allDay bool, eventType string) (bool, err
 	return true, nil
 }
 
-func (c *CalendarUpdateCmd) applyTimeFields(fields calendarUpdateFields, patch *calendar.Event, eventType string) (bool, error) {
+func applyUpdateTimeFields(input calendarUpdateInput, fields calendarUpdateFields, patch *calendar.Event, eventType string) (bool, error) {
 	changed := false
 	if fields.StartTimezone && !fields.From {
 		return false, usage("--start-timezone requires --from")
@@ -512,22 +560,22 @@ func (c *CalendarUpdateCmd) applyTimeFields(fields calendarUpdateFields, patch *
 		return false, usage("--end-timezone requires --to")
 	}
 	if fields.From {
-		allDay, err := resolveUpdateAllDay(c.From, c.AllDay, eventType)
+		allDay, err := resolveUpdateAllDay(input.From, input.AllDay, eventType)
 		if err != nil {
 			return false, err
 		}
-		patch.Start, err = buildEventDateTimeWithTimezone(c.From, allDay, c.StartTimezone, "--start-timezone")
+		patch.Start, err = buildEventDateTimeWithTimezone(input.From, allDay, input.StartTimezone, "--start-timezone")
 		if err != nil {
 			return false, err
 		}
 		changed = true
 	}
 	if fields.To {
-		allDay, err := resolveUpdateAllDay(c.To, c.AllDay, eventType)
+		allDay, err := resolveUpdateAllDay(input.To, input.AllDay, eventType)
 		if err != nil {
 			return false, err
 		}
-		patch.End, err = buildEventDateTimeWithTimezone(c.To, allDay, c.EndTimezone, "--end-timezone")
+		patch.End, err = buildEventDateTimeWithTimezone(input.To, allDay, input.EndTimezone, "--end-timezone")
 		if err != nil {
 			return false, err
 		}
@@ -536,19 +584,19 @@ func (c *CalendarUpdateCmd) applyTimeFields(fields calendarUpdateFields, patch *
 	return changed, nil
 }
 
-func (c *CalendarUpdateCmd) applyAttendees(fields calendarUpdateFields, patch *calendar.Event) bool {
+func applyUpdateAttendees(input calendarUpdateInput, fields calendarUpdateFields, patch *calendar.Event) bool {
 	if !fields.Attendees {
 		return false
 	}
-	patch.Attendees = buildAttendees(c.Attendees)
+	patch.Attendees = buildAttendees(input.Attendees)
 	return true
 }
 
-func (c *CalendarUpdateCmd) applyAttachments(fields calendarUpdateFields, patch *calendar.Event) bool {
+func applyUpdateAttachments(input calendarUpdateInput, fields calendarUpdateFields, patch *calendar.Event) bool {
 	if !fields.Attachments {
 		return false
 	}
-	patch.Attachments = buildAttachments(c.Attachments)
+	patch.Attachments = buildAttachments(input.Attachments)
 	if len(patch.Attachments) == 0 {
 		patch.Attachments = []*calendar.EventAttachment{}
 		patch.ForceSendFields = appendForceSendField(patch.ForceSendFields, "Attachments")
@@ -556,11 +604,11 @@ func (c *CalendarUpdateCmd) applyAttachments(fields calendarUpdateFields, patch 
 	return true
 }
 
-func (c *CalendarUpdateCmd) applyRecurrence(fields calendarUpdateFields, patch *calendar.Event) bool {
+func applyUpdateRecurrence(input calendarUpdateInput, fields calendarUpdateFields, patch *calendar.Event) bool {
 	if !fields.Recurrence {
 		return false
 	}
-	recurrence := buildRecurrence(c.Recurrence)
+	recurrence := buildRecurrence(input.Recurrence)
 	if recurrence == nil {
 		patch.Recurrence = []string{}
 		patch.ForceSendFields = append(patch.ForceSendFields, "Recurrence")
@@ -647,11 +695,11 @@ func cloneEventDateTime(in *calendar.EventDateTime) *calendar.EventDateTime {
 	}
 }
 
-func (c *CalendarUpdateCmd) applyReminders(fields calendarUpdateFields, patch *calendar.Event) (bool, error) {
+func applyUpdateReminders(input calendarUpdateInput, fields calendarUpdateFields, patch *calendar.Event) (bool, error) {
 	if !fields.Reminders {
 		return false, nil
 	}
-	reminders, err := buildReminders(c.Reminders)
+	reminders, err := buildReminders(input.Reminders)
 	if err != nil {
 		return false, err
 	}
@@ -664,10 +712,10 @@ func (c *CalendarUpdateCmd) applyReminders(fields calendarUpdateFields, patch *c
 	return true, nil
 }
 
-func (c *CalendarUpdateCmd) applyDisplayOptions(fields calendarUpdateFields, patch *calendar.Event) (bool, error) {
+func applyUpdateDisplayOptions(input calendarUpdateInput, fields calendarUpdateFields, patch *calendar.Event) (bool, error) {
 	changed := false
 	if fields.ColorID {
-		colorId, err := validateColorId(c.ColorId)
+		colorId, err := validateColorId(input.ColorID)
 		if err != nil {
 			return false, err
 		}
@@ -675,7 +723,7 @@ func (c *CalendarUpdateCmd) applyDisplayOptions(fields calendarUpdateFields, pat
 		changed = true
 	}
 	if fields.Visibility {
-		visibility, err := validateVisibility(c.Visibility)
+		visibility, err := validateVisibility(input.Visibility)
 		if err != nil {
 			return false, err
 		}
@@ -683,7 +731,7 @@ func (c *CalendarUpdateCmd) applyDisplayOptions(fields calendarUpdateFields, pat
 		changed = true
 	}
 	if fields.Transparency {
-		transparency, err := validateTransparency(c.Transparency)
+		transparency, err := validateTransparency(input.Transparency)
 		if err != nil {
 			return false, err
 		}
@@ -693,25 +741,25 @@ func (c *CalendarUpdateCmd) applyDisplayOptions(fields calendarUpdateFields, pat
 	return changed, nil
 }
 
-func (c *CalendarUpdateCmd) applyGuestOptions(fields calendarUpdateFields, patch *calendar.Event) bool {
+func applyUpdateGuestOptions(input calendarUpdateInput, fields calendarUpdateFields, patch *calendar.Event) bool {
 	changed := false
 	if fields.GuestsCanInviteOthers {
-		if c.GuestsCanInviteOthers != nil {
-			patch.GuestsCanInviteOthers = c.GuestsCanInviteOthers
+		if input.GuestsCanInviteOthers != nil {
+			patch.GuestsCanInviteOthers = input.GuestsCanInviteOthers
 		}
 		patch.ForceSendFields = append(patch.ForceSendFields, "GuestsCanInviteOthers")
 		changed = true
 	}
 	if fields.GuestsCanModify {
-		if c.GuestsCanModify != nil {
-			patch.GuestsCanModify = *c.GuestsCanModify
+		if input.GuestsCanModify != nil {
+			patch.GuestsCanModify = *input.GuestsCanModify
 		}
 		patch.ForceSendFields = append(patch.ForceSendFields, "GuestsCanModify")
 		changed = true
 	}
 	if fields.GuestsCanSeeOthers {
-		if c.GuestsCanSeeOthers != nil {
-			patch.GuestsCanSeeOtherGuests = c.GuestsCanSeeOthers
+		if input.GuestsCanSeeOthers != nil {
+			patch.GuestsCanSeeOtherGuests = input.GuestsCanSeeOthers
 		}
 		patch.ForceSendFields = append(patch.ForceSendFields, "GuestsCanSeeOtherGuests")
 		changed = true
@@ -719,7 +767,7 @@ func (c *CalendarUpdateCmd) applyGuestOptions(fields calendarUpdateFields, patch
 	return changed
 }
 
-func (c *CalendarUpdateCmd) applyConferenceData(fields calendarUpdateFields, patch *calendar.Event) bool {
+func applyUpdateConferenceData(fields calendarUpdateFields, patch *calendar.Event) bool {
 	if fields.RemoveZoom {
 		patch.NullFields = append(patch.NullFields, "ConferenceData")
 		return true
@@ -941,15 +989,15 @@ func removeStringField(fields []string, value string) []string {
 	return out
 }
 
-func (c *CalendarUpdateCmd) applyExtendedProperties(fields calendarUpdateFields, patch *calendar.Event) bool {
+func applyUpdateExtendedProperties(input calendarUpdateInput, fields calendarUpdateFields, patch *calendar.Event) bool {
 	if !fields.PrivateProps && !fields.SharedProps {
 		return false
 	}
-	patch.ExtendedProperties = buildExtendedProperties(c.PrivateProps, c.SharedProps)
+	patch.ExtendedProperties = buildExtendedProperties(input.PrivateProps, input.SharedProps)
 	return true
 }
 
-func (c *CalendarUpdateCmd) applyEventTypeProperties(fields calendarUpdateFields, patch *calendar.Event, eventType string, eventTypeRequested, focusFlags, oooFlags, workingFlags bool) (bool, error) {
+func applyUpdateEventTypeProperties(input calendarUpdateInput, fields calendarUpdateFields, patch *calendar.Event, eventType string, eventTypeRequested, focusFlags, oooFlags, workingFlags bool) (bool, error) {
 	changed := false
 	if eventTypeRequested {
 		patch.EventType = eventType
@@ -975,7 +1023,11 @@ func (c *CalendarUpdateCmd) applyEventTypeProperties(fields calendarUpdateFields
 	switch eventType {
 	case eventTypeFocusTime:
 		if eventTypeRequested || focusFlags {
-			props, err := c.buildUpdateFocusTimeProperties()
+			props, err := buildFocusTimeProperties(focusTimeInput{
+				AutoDecline:    input.FocusAutoDecline,
+				DeclineMessage: input.FocusDeclineMessage,
+				ChatStatus:     input.FocusChatStatus,
+			})
 			if err != nil {
 				return false, err
 			}
@@ -984,7 +1036,11 @@ func (c *CalendarUpdateCmd) applyEventTypeProperties(fields calendarUpdateFields
 		}
 	case eventTypeOutOfOffice:
 		if eventTypeRequested || oooFlags {
-			props, err := c.buildUpdateOutOfOfficeProperties(fields.OOODeclineMessage)
+			props, err := buildOutOfOfficeProperties(outOfOfficeInput{
+				AutoDecline:            input.OOOAutoDecline,
+				DeclineMessage:         input.OOODeclineMessage,
+				DeclineMessageProvided: fields.OOODeclineMessage,
+			})
 			if err != nil {
 				return false, err
 			}
@@ -994,12 +1050,12 @@ func (c *CalendarUpdateCmd) applyEventTypeProperties(fields calendarUpdateFields
 	case eventTypeWorkingLocation:
 		if eventTypeRequested || workingFlags {
 			props, err := buildWorkingLocationProperties(workingLocationInput{
-				Type:        c.WorkingLocationType,
-				OfficeLabel: c.WorkingOfficeLabel,
-				BuildingId:  c.WorkingBuildingId,
-				FloorId:     c.WorkingFloorId,
-				DeskId:      c.WorkingDeskId,
-				CustomLabel: c.WorkingCustomLabel,
+				Type:        input.WorkingLocationType,
+				OfficeLabel: input.WorkingOfficeLabel,
+				BuildingId:  input.WorkingBuildingID,
+				FloorId:     input.WorkingFloorID,
+				DeskId:      input.WorkingDeskID,
+				CustomLabel: input.WorkingCustomLabel,
 			})
 			if err != nil {
 				return false, err
@@ -1009,22 +1065,6 @@ func (c *CalendarUpdateCmd) applyEventTypeProperties(fields calendarUpdateFields
 		}
 	}
 	return changed, nil
-}
-
-func (c *CalendarUpdateCmd) buildUpdateFocusTimeProperties() (*calendar.EventFocusTimeProperties, error) {
-	return buildFocusTimeProperties(focusTimeInput{
-		AutoDecline:    c.FocusAutoDecline,
-		DeclineMessage: c.FocusDeclineMessage,
-		ChatStatus:     c.FocusChatStatus,
-	})
-}
-
-func (c *CalendarUpdateCmd) buildUpdateOutOfOfficeProperties(declineProvided bool) (*calendar.EventOutOfOfficeProperties, error) {
-	return buildOutOfOfficeProperties(outOfOfficeInput{
-		AutoDecline:            c.OOOAutoDecline,
-		DeclineMessage:         c.OOODeclineMessage,
-		DeclineMessageProvided: declineProvided,
-	})
 }
 
 func applyUpdateScope(ctx context.Context, svc *calendar.Service, calendarID, eventID, scope, originalStartTime string, patch *calendar.Event) (string, []string, error) {

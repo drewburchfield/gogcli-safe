@@ -123,6 +123,52 @@ type calendarUpdateFields struct {
 	WorkingCustomLabel    bool
 }
 
+type calendarUpdateInput struct {
+	CalendarID            string
+	EventID               string
+	Summary               string
+	From                  string
+	To                    string
+	StartTimezone         string
+	EndTimezone           string
+	Description           string
+	Location              string
+	LocationSearch        string
+	PlaceID               string
+	PlaceLanguage         string
+	PlaceRegion           string
+	Attendees             string
+	AddAttendee           string
+	Attachments           []string
+	AllDay                bool
+	Recurrence            []string
+	Reminders             []string
+	ColorID               string
+	Visibility            string
+	Transparency          string
+	GuestsCanInviteOthers *bool
+	GuestsCanModify       *bool
+	GuestsCanSeeOthers    *bool
+	Scope                 string
+	OriginalStartTime     string
+	PrivateProps          []string
+	SharedProps           []string
+	EventType             string
+	FocusAutoDecline      string
+	FocusDeclineMessage   string
+	FocusChatStatus       string
+	OOOAutoDecline        string
+	OOODeclineMessage     string
+	WorkingLocationType   string
+	WorkingOfficeLabel    string
+	WorkingBuildingID     string
+	WorkingFloorID        string
+	WorkingDeskID         string
+	WorkingCustomLabel    string
+	SendUpdates           string
+	ResolvedPlace         *calendarPlace
+}
+
 type calendarUpdatePlan struct {
 	CalendarID         string
 	EventID            string
@@ -159,17 +205,17 @@ func (f calendarUpdateFields) zoomMutation() bool {
 	return f.WithZoom || f.RegenerateZoom || f.RemoveZoom
 }
 
-func buildCalendarUpdatePlan(c *CalendarUpdateCmd, fields calendarUpdateFields) (*calendarUpdatePlan, error) {
-	calendarID, err := prepareCalendarID(c.CalendarID, false)
+func buildCalendarUpdatePlan(input calendarUpdateInput, fields calendarUpdateFields) (*calendarUpdatePlan, error) {
+	calendarID, err := prepareCalendarID(input.CalendarID, false)
 	if err != nil {
 		return nil, err
 	}
-	eventID := normalizeCalendarEventID(c.EventID)
+	eventID := normalizeCalendarEventID(input.EventID)
 	if eventID == "" {
 		return nil, usage("empty eventId")
 	}
 
-	scope, err := resolveRecurringScope(c.Scope, c.OriginalStartTime)
+	scope, err := resolveRecurringScope(input.Scope, input.OriginalStartTime)
 	if err != nil {
 		return nil, err
 	}
@@ -188,26 +234,26 @@ func buildCalendarUpdatePlan(c *CalendarUpdateCmd, fields calendarUpdateFields) 
 
 	placeLookup, err := validateCalendarPlaceLookup(calendarPlaceLookup{
 		LocationSet:       fields.Location,
-		LocationSearch:    c.LocationSearch,
+		LocationSearch:    input.LocationSearch,
 		LocationSearchSet: fields.LocationSearch,
-		PlaceID:           c.PlaceID,
+		PlaceID:           input.PlaceID,
 		PlaceIDSet:        fields.PlaceID,
-		LanguageCode:      c.PlaceLanguage,
-		RegionCode:        c.PlaceRegion,
+		LanguageCode:      input.PlaceLanguage,
+		RegionCode:        input.PlaceRegion,
 	})
 	if err != nil {
 		return nil, err
 	}
-	sendUpdates, err := validateSendUpdates(c.SendUpdates)
+	sendUpdates, err := validateSendUpdates(input.SendUpdates)
 	if err != nil {
 		return nil, err
 	}
-	patch, changed, err := c.buildUpdatePatch(fields)
+	patch, changed, err := buildCalendarUpdatePatch(input, fields)
 	if err != nil {
 		return nil, err
 	}
 
-	addAttendee := strings.TrimSpace(c.AddAttendee)
+	addAttendee := strings.TrimSpace(input.AddAttendee)
 	if fields.AddAttendee && addAttendee == "" {
 		return nil, usage("empty --add-attendee")
 	}
@@ -219,7 +265,7 @@ func buildCalendarUpdatePlan(c *CalendarUpdateCmd, fields calendarUpdateFields) 
 		CalendarID:         calendarID,
 		EventID:            eventID,
 		Scope:              scope,
-		OriginalStartTime:  strings.TrimSpace(c.OriginalStartTime),
+		OriginalStartTime:  strings.TrimSpace(input.OriginalStartTime),
 		SendUpdates:        sendUpdates,
 		AddAttendee:        addAttendee,
 		WantsAddAttendee:   fields.AddAttendee,

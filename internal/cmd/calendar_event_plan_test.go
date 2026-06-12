@@ -6,7 +6,7 @@ import (
 )
 
 func TestBuildCalendarUpdatePlan(t *testing.T) {
-	cmd := &CalendarUpdateCmd{
+	input := calendarUpdateInput{
 		CalendarID:  " cal@example.com ",
 		EventID:     " event-1 ",
 		Summary:     " Updated ",
@@ -19,7 +19,7 @@ func TestBuildCalendarUpdatePlan(t *testing.T) {
 		WithZoom:    true,
 	}
 
-	plan, err := buildCalendarUpdatePlan(cmd, fields)
+	plan, err := buildCalendarUpdatePlan(input, fields)
 	if err != nil {
 		t.Fatalf("buildCalendarUpdatePlan: %v", err)
 	}
@@ -46,31 +46,31 @@ func TestBuildCalendarUpdatePlan(t *testing.T) {
 func TestBuildCalendarUpdatePlanValidatesSelectedFields(t *testing.T) {
 	tests := []struct {
 		name   string
-		cmd    CalendarUpdateCmd
+		input  calendarUpdateInput
 		fields calendarUpdateFields
 		want   string
 	}{
 		{
 			name:   "all day requires both times",
-			cmd:    CalendarUpdateCmd{CalendarID: "primary", EventID: "event-1", From: "2025-01-01"},
+			input:  calendarUpdateInput{CalendarID: "primary", EventID: "event-1", From: "2025-01-01"},
 			fields: calendarUpdateFields{AllDay: true, From: true},
 			want:   "when changing --all-day",
 		},
 		{
 			name:   "attendee modes conflict",
-			cmd:    CalendarUpdateCmd{CalendarID: "primary", EventID: "event-1"},
+			input:  calendarUpdateInput{CalendarID: "primary", EventID: "event-1"},
 			fields: calendarUpdateFields{Attendees: true, AddAttendee: true},
 			want:   "cannot use both --attendees and --add-attendee",
 		},
 		{
 			name:   "empty add attendee",
-			cmd:    CalendarUpdateCmd{CalendarID: "primary", EventID: "event-1"},
+			input:  calendarUpdateInput{CalendarID: "primary", EventID: "event-1"},
 			fields: calendarUpdateFields{AddAttendee: true},
 			want:   "empty --add-attendee",
 		},
 		{
 			name:   "no updates",
-			cmd:    CalendarUpdateCmd{CalendarID: "primary", EventID: "event-1"},
+			input:  calendarUpdateInput{CalendarID: "primary", EventID: "event-1"},
 			fields: calendarUpdateFields{},
 			want:   "no updates provided",
 		},
@@ -78,7 +78,7 @@ func TestBuildCalendarUpdatePlanValidatesSelectedFields(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := buildCalendarUpdatePlan(&tc.cmd, tc.fields)
+			_, err := buildCalendarUpdatePlan(tc.input, tc.fields)
 			if err == nil || !strings.Contains(err.Error(), tc.want) {
 				t.Fatalf("expected %q error, got %v", tc.want, err)
 			}
@@ -87,7 +87,7 @@ func TestBuildCalendarUpdatePlanValidatesSelectedFields(t *testing.T) {
 }
 
 func TestBuildCalendarUpdatePlanDefersPlaceResolution(t *testing.T) {
-	cmd := &CalendarUpdateCmd{
+	input := calendarUpdateInput{
 		CalendarID:     "primary",
 		EventID:        "event-1",
 		LocationSearch: " Cafe ",
@@ -95,7 +95,7 @@ func TestBuildCalendarUpdatePlanDefersPlaceResolution(t *testing.T) {
 	}
 	fields := calendarUpdateFields{LocationSearch: true}
 
-	plan, err := buildCalendarUpdatePlan(cmd, fields)
+	plan, err := buildCalendarUpdatePlan(input, fields)
 	if err != nil {
 		t.Fatalf("buildCalendarUpdatePlan: %v", err)
 	}
