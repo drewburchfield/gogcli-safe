@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -67,7 +66,7 @@ func listCalendarEvents(ctx context.Context, svc *calendar.Service, calendarID, 
 		for _, e := range events {
 			jsonItems = append(jsonItems, wrapEventWithDaysWithTimezone(e.Event, calendarTimezone, loc))
 		}
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"events":        jsonItems,
 			"nextPageToken": nextPageToken,
 		}); err != nil {
@@ -177,7 +176,7 @@ func listCalendarIDsEvents(ctx context.Context, svc *calendar.Service, calendarI
 	sortEventsBy(all, sortKey, sortOrder)
 
 	if outfmt.IsJSON(ctx) {
-		if err := outfmt.WriteJSON(ctx, os.Stdout, map[string]any{"events": all}); err != nil {
+		if err := outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"events": all}); err != nil {
 			return err
 		}
 		if len(all) == 0 {

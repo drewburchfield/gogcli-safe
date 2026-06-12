@@ -1,17 +1,15 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"testing"
-
-	"google.golang.org/api/calendar/v3"
 )
 
 func TestListCalendarEvents_JSON(t *testing.T) {
@@ -30,19 +28,17 @@ func TestListCalendarEvents_JSON(t *testing.T) {
 	}))
 	defer closeServer()
 
-	ctx := newCalendarJSONContext(t)
-
-	jsonOut := captureStdout(t, func() {
-		if err := listCalendarEvents(ctx, svc, "cal1", "2025-01-01T00:00:00Z", "2025-01-02T00:00:00Z", 10, "", false, false, "", "", "", "", false, false, "", ""); err != nil {
-			t.Fatalf("listCalendarEvents: %v", err)
-		}
-	})
+	var output bytes.Buffer
+	ctx := newCmdRuntimeJSONOutputContext(t, &output, io.Discard)
+	if err := listCalendarEvents(ctx, svc, "cal1", "2025-01-01T00:00:00Z", "2025-01-02T00:00:00Z", 10, "", false, false, "", "", "", "", false, false, "", ""); err != nil {
+		t.Fatalf("listCalendarEvents: %v", err)
+	}
 
 	var parsed struct {
 		Events []map[string]any `json:"events"`
 		Next   string           `json:"nextPageToken"`
 	}
-	if err := json.Unmarshal([]byte(jsonOut), &parsed); err != nil {
+	if err := json.Unmarshal(output.Bytes(), &parsed); err != nil {
 		t.Fatalf("json parse: %v", err)
 	}
 	if len(parsed.Events) != 1 || parsed.Next != "next" {
@@ -80,12 +76,12 @@ func TestListCalendarEvents_TableUsesCalendarTimezone(t *testing.T) {
 	}))
 	defer closeServer()
 
-	text := captureStdout(t, func() {
-		ctx := newCalendarOutputContext(t, os.Stdout, io.Discard)
-		if err := listCalendarEvents(ctx, svc, "cal1", "2026-04-08T00:00:00Z", "2026-04-09T00:00:00Z", 10, "", false, false, "", "", "", "", false, false, "", ""); err != nil {
-			t.Fatalf("listCalendarEvents: %v", err)
-		}
-	})
+	var output bytes.Buffer
+	ctx := newCmdRuntimeOutputContext(t, &output, io.Discard)
+	if err := listCalendarEvents(ctx, svc, "cal1", "2026-04-08T00:00:00Z", "2026-04-09T00:00:00Z", 10, "", false, false, "", "", "", "", false, false, "", ""); err != nil {
+		t.Fatalf("listCalendarEvents: %v", err)
+	}
+	text := output.String()
 
 	if !strings.Contains(text, "2026-04-08T09:00:00+02:00") || !strings.Contains(text, "2026-04-08T09:20:00+02:00") {
 		t.Fatalf("expected calendar-local times, got: %q", text)
@@ -125,23 +121,22 @@ func TestListCalendarEvents_TableIncludesLocation(t *testing.T) {
 	}))
 	defer closeServer()
 
-	text := captureStdout(t, func() {
-		ctx := newCalendarOutputContext(t, os.Stdout, io.Discard)
-		if err := listCalendarEvents(ctx, svc, "cal1", "2026-04-08T00:00:00Z", "2026-04-09T00:00:00Z", 10, "", false, false, "", "", "", "", false, false, "", ""); err != nil {
-			t.Fatalf("listCalendarEvents: %v", err)
-		}
-	})
+	var output bytes.Buffer
+	ctx := newCmdRuntimeOutputContext(t, &output, io.Discard)
+	if err := listCalendarEvents(ctx, svc, "cal1", "2026-04-08T00:00:00Z", "2026-04-09T00:00:00Z", 10, "", false, false, "", "", "", "", false, false, "", ""); err != nil {
+		t.Fatalf("listCalendarEvents: %v", err)
+	}
+	text := output.String()
 
 	if strings.Contains(text, "LOCATION") {
 		t.Fatalf("did not expect LOCATION header without --location, got: %q", text)
 	}
 
-	text = captureStdout(t, func() {
-		ctx := newCalendarOutputContext(t, os.Stdout, io.Discard)
-		if err := listCalendarEvents(ctx, svc, "cal1", "2026-04-08T00:00:00Z", "2026-04-09T00:00:00Z", 10, "", false, false, "", "", "", "", false, true, "", ""); err != nil {
-			t.Fatalf("listCalendarEvents with location: %v", err)
-		}
-	})
+	output.Reset()
+	if err := listCalendarEvents(ctx, svc, "cal1", "2026-04-08T00:00:00Z", "2026-04-09T00:00:00Z", 10, "", false, false, "", "", "", "", false, true, "", ""); err != nil {
+		t.Fatalf("listCalendarEvents with location: %v", err)
+	}
+	text = output.String()
 
 	if !strings.Contains(text, "LOCATION") {
 		t.Fatalf("expected LOCATION header with --location, got: %q", text)
@@ -185,12 +180,11 @@ func TestListCalendarEvents_JSONUsesCalendarTimezoneForLocalFields(t *testing.T)
 	}))
 	defer closeServer()
 
-	ctx := newCalendarJSONContext(t)
-	jsonOut := captureStdout(t, func() {
-		if err := listCalendarEvents(ctx, svc, "cal1", "2026-04-08T00:00:00Z", "2026-04-09T00:00:00Z", 10, "", false, false, "", "", "", "", false, false, "", ""); err != nil {
-			t.Fatalf("listCalendarEvents: %v", err)
-		}
-	})
+	var output bytes.Buffer
+	ctx := newCmdRuntimeJSONOutputContext(t, &output, io.Discard)
+	if err := listCalendarEvents(ctx, svc, "cal1", "2026-04-08T00:00:00Z", "2026-04-09T00:00:00Z", 10, "", false, false, "", "", "", "", false, false, "", ""); err != nil {
+		t.Fatalf("listCalendarEvents: %v", err)
+	}
 
 	var parsed struct {
 		Events []struct {
@@ -199,7 +193,7 @@ func TestListCalendarEvents_JSONUsesCalendarTimezoneForLocalFields(t *testing.T)
 			EndLocal   string `json:"endLocal"`
 		} `json:"events"`
 	}
-	if err := json.Unmarshal([]byte(jsonOut), &parsed); err != nil {
+	if err := json.Unmarshal(output.Bytes(), &parsed); err != nil {
 		t.Fatalf("json parse: %v", err)
 	}
 	if len(parsed.Events) != 1 {
@@ -212,9 +206,6 @@ func TestListCalendarEvents_JSONUsesCalendarTimezoneForLocalFields(t *testing.T)
 }
 
 func TestCalendarEventsCmd_DefaultsToPrimary(t *testing.T) {
-	origNew := newCalendarService
-	t.Cleanup(func() { newCalendarService = origNew })
-
 	svc, closeServer := newCalendarServiceForTest(t, withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/calendars/primary/events") && r.Method == http.MethodGet {
 			w.Header().Set("Content-Type", "application/json")
@@ -229,9 +220,9 @@ func TestCalendarEventsCmd_DefaultsToPrimary(t *testing.T) {
 		http.NotFound(w, r)
 	})))
 	defer closeServer()
-	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
 
-	ctx := newCalendarJSONContext(t)
+	var output bytes.Buffer
+	ctx := withCalendarTestService(newCmdRuntimeJSONOutputContext(t, &output, io.Discard), svc)
 	flags := &RootFlags{Account: "a@b.com"}
 
 	cmd := &CalendarEventsCmd{
@@ -239,20 +230,16 @@ func TestCalendarEventsCmd_DefaultsToPrimary(t *testing.T) {
 		To:   "2025-01-02T00:00:00Z",
 		Max:  10,
 	}
-	out := captureStdout(t, func() {
-		if err := cmd.Run(ctx, flags); err != nil {
-			t.Fatalf("Run: %v", err)
-		}
-	})
+	if err := cmd.Run(ctx, flags); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	out := output.String()
 	if !strings.Contains(out, "\"events\"") {
 		t.Fatalf("unexpected output: %q", out)
 	}
 }
 
 func TestCalendarEventsCmd_CalendarsFlag(t *testing.T) {
-	origNew := newCalendarService
-	t.Cleanup(func() { newCalendarService = origNew })
-
 	var mu sync.Mutex
 	calls := make(map[string]int)
 
@@ -304,9 +291,9 @@ func TestCalendarEventsCmd_CalendarsFlag(t *testing.T) {
 		}
 	})))
 	defer closeServer()
-	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
 
-	ctx := newCalendarJSONContext(t)
+	var output bytes.Buffer
+	ctx := withCalendarTestService(newCmdRuntimeJSONOutputContext(t, &output, io.Discard), svc)
 	flags := &RootFlags{Account: "a@b.com"}
 
 	cmd := &CalendarEventsCmd{
@@ -315,11 +302,10 @@ func TestCalendarEventsCmd_CalendarsFlag(t *testing.T) {
 		To:        "2025-01-02T00:00:00Z",
 		Max:       10,
 	}
-	out := captureStdout(t, func() {
-		if err := cmd.Run(ctx, flags); err != nil {
-			t.Fatalf("Run: %v", err)
-		}
-	})
+	if err := cmd.Run(ctx, flags); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	out := output.String()
 
 	var parsed struct {
 		Events []map[string]any `json:"events"`
@@ -339,9 +325,6 @@ func TestCalendarEventsCmd_CalendarsFlag(t *testing.T) {
 }
 
 func TestCalendarEventsCmd_ListSelectorAllowsCalFlag(t *testing.T) {
-	origNew := newCalendarService
-	t.Cleanup(func() { newCalendarService = origNew })
-
 	svc, closeServer := newCalendarServiceForTest(t, withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/calendarList") &&
@@ -366,22 +349,21 @@ func TestCalendarEventsCmd_ListSelectorAllowsCalFlag(t *testing.T) {
 		}
 	})))
 	defer closeServer()
-	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
 
-	ctx := newCalendarJSONContext(t)
+	var output bytes.Buffer
+	ctx := withCalendarTestService(newCmdRuntimeJSONOutputContext(t, &output, io.Discard), svc)
 	flags := &RootFlags{Account: "a@b.com"}
 	cmd := &CalendarEventsCmd{}
 
-	out := captureStdout(t, func() {
-		if err := runKong(t, cmd, []string{
-			"list",
-			"--cal", "Work",
-			"--from", "2025-01-01T00:00:00Z",
-			"--to", "2025-01-02T00:00:00Z",
-		}, ctx, flags); err != nil {
-			t.Fatalf("calendar events list --cal: %v", err)
-		}
-	})
+	if err := runKong(t, cmd, []string{
+		"list",
+		"--cal", "Work",
+		"--from", "2025-01-01T00:00:00Z",
+		"--to", "2025-01-02T00:00:00Z",
+	}, ctx, flags); err != nil {
+		t.Fatalf("calendar events list --cal: %v", err)
+	}
+	out := output.String()
 
 	if !strings.Contains(out, `"events"`) || !strings.Contains(out, `"Event"`) {
 		t.Fatalf("unexpected output: %q", out)
@@ -389,9 +371,6 @@ func TestCalendarEventsCmd_ListSelectorAllowsCalFlag(t *testing.T) {
 }
 
 func TestCalendarEventsCmd_ListSelectorAllowsPositionalCalendar(t *testing.T) {
-	origNew := newCalendarService
-	t.Cleanup(func() { newCalendarService = origNew })
-
 	svc, closeServer := newCalendarServiceForTest(t, withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case strings.Contains(r.URL.Path, "/calendarList") &&
@@ -416,21 +395,20 @@ func TestCalendarEventsCmd_ListSelectorAllowsPositionalCalendar(t *testing.T) {
 		}
 	})))
 	defer closeServer()
-	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
 
-	ctx := newCalendarJSONContext(t)
+	var output bytes.Buffer
+	ctx := withCalendarTestService(newCmdRuntimeJSONOutputContext(t, &output, io.Discard), svc)
 	flags := &RootFlags{Account: "a@b.com"}
 	cmd := &CalendarEventsCmd{}
 
-	out := captureStdout(t, func() {
-		if err := runKong(t, cmd, []string{
-			"list", "Work",
-			"--from", "2025-01-01T00:00:00Z",
-			"--to", "2025-01-02T00:00:00Z",
-		}, ctx, flags); err != nil {
-			t.Fatalf("calendar events list Work: %v", err)
-		}
-	})
+	if err := runKong(t, cmd, []string{
+		"list", "Work",
+		"--from", "2025-01-01T00:00:00Z",
+		"--to", "2025-01-02T00:00:00Z",
+	}, ctx, flags); err != nil {
+		t.Fatalf("calendar events list Work: %v", err)
+	}
+	out := output.String()
 
 	if !strings.Contains(out, `"events"`) || !strings.Contains(out, `"Event"`) {
 		t.Fatalf("unexpected output: %q", out)

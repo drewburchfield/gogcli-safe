@@ -17,9 +17,6 @@ import (
 )
 
 func TestCalendarSearchCmd_JSON(t *testing.T) {
-	origNew := newCalendarService
-	t.Cleanup(func() { newCalendarService = origNew })
-
 	srv := httptest.NewServer(withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/events") && r.Method == http.MethodGet {
 			// Verify query parameter is set
@@ -59,15 +56,11 @@ func TestCalendarSearchCmd_JSON(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}
-	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
-
-	out := captureStdout(t, func() {
-		_ = captureStderr(t, func() {
-			if err := Execute([]string{"--json", "--account", "a@b.com", "calendar", "search", "team meeting"}); err != nil {
-				t.Fatalf("Execute: %v", err)
-			}
-		})
-	})
+	result := executeWithCalendarTestService(t, []string{"--json", "--account", "a@b.com", "calendar", "search", "team meeting"}, svc)
+	if result.err != nil {
+		t.Fatalf("Execute: %v", result.err)
+	}
+	out := result.stdout
 
 	var parsed struct {
 		Events []struct {
@@ -104,9 +97,6 @@ func TestCalendarSearchCmd_EmptyQueryIsUsage(t *testing.T) {
 }
 
 func TestCalendarSearchCmd_UsesResolvedAliasID(t *testing.T) {
-	origNew := newCalendarService
-	t.Cleanup(func() { newCalendarService = origNew })
-
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
@@ -137,26 +127,18 @@ func TestCalendarSearchCmd_UsesResolvedAliasID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}
-	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
-
-	_ = captureStdout(t, func() {
-		_ = captureStderr(t, func() {
-			if err := Execute([]string{
-				"--json",
-				"--account", "a@b.com",
-				"calendar", "search", "meeting",
-				"--calendar", "family",
-			}); err != nil {
-				t.Fatalf("Execute: %v", err)
-			}
-		})
-	})
+	result := executeWithCalendarTestService(t, []string{
+		"--json",
+		"--account", "a@b.com",
+		"calendar", "search", "meeting",
+		"--calendar", "family",
+	}, svc)
+	if result.err != nil {
+		t.Fatalf("Execute: %v", result.err)
+	}
 }
 
 func TestCalendarSearchCmd_NoResults(t *testing.T) {
-	origNew := newCalendarService
-	t.Cleanup(func() { newCalendarService = origNew })
-
 	srv := httptest.NewServer(withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/events") && r.Method == http.MethodGet {
 			w.Header().Set("Content-Type", "application/json")
@@ -177,15 +159,11 @@ func TestCalendarSearchCmd_NoResults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}
-	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
-
-	out := captureStdout(t, func() {
-		_ = captureStderr(t, func() {
-			if err := Execute([]string{"--json", "--account", "a@b.com", "calendar", "search", "nonexistent"}); err != nil {
-				t.Fatalf("Execute: %v", err)
-			}
-		})
-	})
+	result := executeWithCalendarTestService(t, []string{"--json", "--account", "a@b.com", "calendar", "search", "nonexistent"}, svc)
+	if result.err != nil {
+		t.Fatalf("Execute: %v", result.err)
+	}
+	out := result.stdout
 
 	// In JSON mode, should return empty events array
 	var parsed struct {
@@ -204,9 +182,6 @@ func TestCalendarSearchCmd_NoResults(t *testing.T) {
 }
 
 func TestCalendarSearchCmd_WithTimeRange(t *testing.T) {
-	origNew := newCalendarService
-	t.Cleanup(func() { newCalendarService = origNew })
-
 	srv := httptest.NewServer(withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/events") && r.Method == http.MethodGet {
 			// Verify time range parameters
@@ -244,21 +219,17 @@ func TestCalendarSearchCmd_WithTimeRange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}
-	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
-
-	out := captureStdout(t, func() {
-		_ = captureStderr(t, func() {
-			if err := Execute([]string{
-				"--json",
-				"--account", "a@b.com",
-				"calendar", "search", "meeting",
-				"--from", "2024-01-01T00:00:00Z",
-				"--to", "2024-01-31T23:59:59Z",
-			}); err != nil {
-				t.Fatalf("Execute: %v", err)
-			}
-		})
-	})
+	result := executeWithCalendarTestService(t, []string{
+		"--json",
+		"--account", "a@b.com",
+		"calendar", "search", "meeting",
+		"--from", "2024-01-01T00:00:00Z",
+		"--to", "2024-01-31T23:59:59Z",
+	}, svc)
+	if result.err != nil {
+		t.Fatalf("Execute: %v", result.err)
+	}
+	out := result.stdout
 
 	var parsed struct {
 		Events []struct {
@@ -274,9 +245,6 @@ func TestCalendarSearchCmd_WithTimeRange(t *testing.T) {
 }
 
 func TestCalendarSearchCmd_FromOnly_DefaultsTo90Days(t *testing.T) {
-	origNew := newCalendarService
-	t.Cleanup(func() { newCalendarService = origNew })
-
 	srv := httptest.NewServer(withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/events") && r.Method == http.MethodGet {
 			timeMin := r.URL.Query().Get("timeMin")
@@ -315,26 +283,18 @@ func TestCalendarSearchCmd_FromOnly_DefaultsTo90Days(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}
-	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
-
-	_ = captureStdout(t, func() {
-		_ = captureStderr(t, func() {
-			if err := Execute([]string{
-				"--json",
-				"--account", "a@b.com",
-				"calendar", "search", "meeting",
-				"--from", "today",
-			}); err != nil {
-				t.Fatalf("Execute: %v", err)
-			}
-		})
-	})
+	result := executeWithCalendarTestService(t, []string{
+		"--json",
+		"--account", "a@b.com",
+		"calendar", "search", "meeting",
+		"--from", "today",
+	}, svc)
+	if result.err != nil {
+		t.Fatalf("Execute: %v", result.err)
+	}
 }
 
 func TestCalendarSearchCmd_TableOutput(t *testing.T) {
-	origNew := newCalendarService
-	t.Cleanup(func() { newCalendarService = origNew })
-
 	srv := httptest.NewServer(withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/events") && r.Method == http.MethodGet {
 			w.Header().Set("Content-Type", "application/json")
@@ -362,15 +322,11 @@ func TestCalendarSearchCmd_TableOutput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}
-	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
-
-	out := captureStdout(t, func() {
-		_ = captureStderr(t, func() {
-			if err := Execute([]string{"--account", "a@b.com", "calendar", "search", "team"}); err != nil {
-				t.Fatalf("Execute: %v", err)
-			}
-		})
-	})
+	result := executeWithCalendarTestService(t, []string{"--account", "a@b.com", "calendar", "search", "team"}, svc)
+	if result.err != nil {
+		t.Fatalf("Execute: %v", result.err)
+	}
+	out := result.stdout
 
 	// Verify table output contains expected fields
 	if !strings.Contains(out, "event1") {
@@ -388,9 +344,6 @@ func TestCalendarSearchCmd_TableOutput(t *testing.T) {
 }
 
 func TestCalendarSearchCmd_MaxResults(t *testing.T) {
-	origNew := newCalendarService
-	t.Cleanup(func() { newCalendarService = origNew })
-
 	srv := httptest.NewServer(withPrimaryCalendar(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/events") && r.Method == http.MethodGet {
 			// Verify maxResults parameter
@@ -430,20 +383,16 @@ func TestCalendarSearchCmd_MaxResults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewService: %v", err)
 	}
-	newCalendarService = func(context.Context, string) (*calendar.Service, error) { return svc, nil }
-
-	out := captureStdout(t, func() {
-		_ = captureStderr(t, func() {
-			if err := Execute([]string{
-				"--json",
-				"--account", "a@b.com",
-				"calendar", "search", "meeting",
-				"--max", "5",
-			}); err != nil {
-				t.Fatalf("Execute: %v", err)
-			}
-		})
-	})
+	result := executeWithCalendarTestService(t, []string{
+		"--json",
+		"--account", "a@b.com",
+		"calendar", "search", "meeting",
+		"--max", "5",
+	}, svc)
+	if result.err != nil {
+		t.Fatalf("Execute: %v", result.err)
+	}
+	out := result.stdout
 
 	var parsed struct {
 		Events []struct {

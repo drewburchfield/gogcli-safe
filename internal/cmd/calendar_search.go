@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -62,7 +61,7 @@ func (c *CalendarSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 	redactCalendarEventsForOutput(ctx, resp.Items)
 
 	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, os.Stdout, map[string]any{
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
 			"events": wrapEventsWithDays(resp.Items),
 			"query":  query,
 		})
@@ -73,7 +72,7 @@ func (c *CalendarSearchCmd) Run(ctx context.Context, flags *RootFlags) error {
 		return nil
 	}
 
-	tw := tabwriter.NewWriter(os.Stdout, 0, 4, 2, ' ', 0)
+	tw := tabwriter.NewWriter(stdoutWriter(ctx), 0, 4, 2, ' ', 0)
 	fmt.Fprintln(tw, "ID\tSTART\tEND\tSUMMARY")
 	for _, e := range resp.Items {
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%s\n", e.Id, eventStart(e), eventEnd(e), e.Summary)

@@ -42,6 +42,15 @@ func withCalendarTestServiceFactory(ctx context.Context, factory app.CalendarSer
 	return app.WithRuntime(ctx, runtime)
 }
 
+func executeWithCalendarTestService(t *testing.T, args []string, svc *calendar.Service) executeTestResult {
+	t.Helper()
+	return executeWithTestRuntime(t, args, &app.Runtime{Services: app.Services{
+		Calendar: func(context.Context, string) (*calendar.Service, error) {
+			return svc, nil
+		},
+	}})
+}
+
 func newCalendarOutputContext(t *testing.T, stdout, stderr io.Writer) context.Context {
 	t.Helper()
 
