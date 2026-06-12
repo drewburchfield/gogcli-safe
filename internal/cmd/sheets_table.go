@@ -9,6 +9,7 @@ import (
 	"google.golang.org/api/sheets/v4"
 
 	"github.com/steipete/gogcli/internal/outfmt"
+	"github.com/steipete/gogcli/internal/sheetsa1"
 	"github.com/steipete/gogcli/internal/ui"
 )
 
@@ -365,7 +366,7 @@ func sheetsTableToItem(table *sheets.Table, catalog *spreadsheetRangeCatalog) sh
 			item.SheetTitle = catalog.SheetTitlesByID[table.Range.SheetId]
 		}
 		if item.SheetTitle != "" {
-			item.A1 = gridRangeToA1(item.SheetTitle, table.Range)
+			item.A1 = sheetsa1.FormatGridRange(item.SheetTitle, table.Range)
 			if dataA1, ok := sheetsTableDataRangeA1(item.SheetTitle, table); ok {
 				item.DataA1 = dataA1
 			}

@@ -11,6 +11,7 @@ import (
 	"google.golang.org/api/sheets/v4"
 
 	"github.com/steipete/gogcli/internal/outfmt"
+	"github.com/steipete/gogcli/internal/sheetsa1"
 	"github.com/steipete/gogcli/internal/ui"
 )
 
@@ -327,7 +328,7 @@ func bandingItems(resp *sheets.Spreadsheet, onlySheet string) []bandingItem {
 				BandedRangeID:    br.BandedRangeId,
 				SheetID:          sheet.Properties.SheetId,
 				SheetTitle:       sheetTitle,
-				A1:               gridRangeToA1(sheetTitle, br.Range),
+				A1:               sheetsa1.FormatGridRange(sheetTitle, br.Range),
 				Range:            br.Range,
 				RowProperties:    br.RowProperties,
 				ColumnProperties: br.ColumnProperties,

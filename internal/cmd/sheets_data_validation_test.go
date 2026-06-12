@@ -537,12 +537,6 @@ func TestSubtractTableValidationSpans(t *testing.T) {
 	}
 }
 
-func TestFormatA1CellPreservesSheetTitleWhitespace(t *testing.T) {
-	if got := formatA1Cell("  Sheet One  ", 2, 3); got != "'  Sheet One  '!C2" {
-		t.Fatalf("formatA1Cell = %q", got)
-	}
-}
-
 func TestBuildTableValidationCopyRequests(t *testing.T) {
 	rule := &sheets.DataValidationRule{
 		Condition:    &sheets.BooleanCondition{Type: "ONE_OF_LIST"},

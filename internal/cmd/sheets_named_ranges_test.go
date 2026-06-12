@@ -218,27 +218,3 @@ func TestSheetsNamedRangesDelete(t *testing.T) {
 		t.Fatalf("unexpected id: %q", gotDelete.NamedRangeId)
 	}
 }
-
-func TestGridRangeToA1_PreservesSheetTitleWhitespace(t *testing.T) {
-	got := gridRangeToA1("  Sheet One  ", &sheets.GridRange{
-		SheetId:          1,
-		StartRowIndex:    0,
-		EndRowIndex:      1,
-		StartColumnIndex: 0,
-		EndColumnIndex:   1,
-	})
-	if got != "'  Sheet One  '!A1" {
-		t.Fatalf("unexpected a1: %q", got)
-	}
-}
-
-func TestGridRangeToA1_OpenEndedStartBoundRangeDoesNotCollapseToWholeSheet(t *testing.T) {
-	got := gridRangeToA1("Sheet1", &sheets.GridRange{
-		SheetId:          1,
-		StartRowIndex:    5,
-		StartColumnIndex: 0,
-	})
-	if got != "" {
-		t.Fatalf("expected empty a1 for unrepresentable open-ended range, got %q", got)
-	}
-}

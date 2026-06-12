@@ -152,7 +152,7 @@ func resolveValidationReadRange(input string, catalog *spreadsheetRangeCatalog) 
 		if err != nil {
 			return "", nil, err
 		}
-		return formatSheetPrefix(sheetTitle) + rangeSpec, gridRange, nil
+		return sheetsa1.SheetPrefix(sheetTitle) + rangeSpec, gridRange, nil
 	}
 	gridRange, err := resolveGridRangeWithCatalog(rangeSpec, catalog, "validation")
 	if err != nil {
@@ -336,7 +336,7 @@ func collectCellValidations(resp *sheets.Spreadsheet) []sheetsCellValidation {
 					colNumber := int(data.StartColumn) + colOffset + 1
 					items = append(items, sheetsCellValidation{
 						Sheet: title,
-						A1:    formatA1Cell(title, rowNumber, colNumber),
+						A1:    sheetsa1.FormatCell(title, rowNumber, colNumber),
 						Row:   rowNumber,
 						Col:   colNumber,
 						Rule:  cell.DataValidation,
@@ -510,7 +510,7 @@ func appendTableCellValidations(
 				seen[key] = struct{}{}
 				items = append(items, sheetsCellValidation{
 					Sheet: title,
-					A1:    formatA1Cell(title, int(row+1), int(col+1)),
+					A1:    sheetsa1.FormatCell(title, int(row+1), int(col+1)),
 					Row:   int(row + 1),
 					Col:   int(col + 1),
 					Rule:  span.Rule,
@@ -549,7 +549,7 @@ func resolveTableValidationCopyOptions(
 	if !ok {
 		return tableValidationCopyOptions{}, usagef("copy source references unknown sheet ID %d", source.SheetId)
 	}
-	sourceA1 := gridRangeToA1(sheetTitle, source)
+	sourceA1 := sheetsa1.FormatGridRange(sheetTitle, source)
 	if sourceA1 == "" {
 		return tableValidationCopyOptions{}, usage("copy source range cannot be represented in A1 notation")
 	}

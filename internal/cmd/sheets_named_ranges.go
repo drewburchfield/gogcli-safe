@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 	"sort"
-	"strconv"
 	"strings"
 
 	"google.golang.org/api/sheets/v4"
 
 	"github.com/steipete/gogcli/internal/outfmt"
+	"github.com/steipete/gogcli/internal/sheetsa1"
 	"github.com/steipete/gogcli/internal/ui"
 )
 
@@ -450,91 +450,7 @@ func namedRangeToItem(nr *sheets.NamedRange, catalog *spreadsheetRangeCatalog) n
 	out.StartColIndex = nr.Range.StartColumnIndex
 	out.EndColIndex = nr.Range.EndColumnIndex
 	if out.SheetTitle != "" {
-		out.A1 = gridRangeToA1(out.SheetTitle, nr.Range)
+		out.A1 = sheetsa1.FormatGridRange(out.SheetTitle, nr.Range)
 	}
 	return out
-}
-
-func gridRangeToA1(sheetTitle string, gr *sheets.GridRange) string {
-	if gr == nil {
-		return ""
-	}
-
-	sheetPrefix := formatGridRangeSheetPrefix(sheetTitle)
-	if sheetPrefix == "" {
-		sheetPrefix = "sheetId:" + strconv.FormatInt(gr.SheetId, 10) + "!"
-	}
-
-	startRowSet := gr.StartRowIndex > 0
-	startColSet := gr.StartColumnIndex > 0
-	endRowSet := gr.EndRowIndex > 0
-	endColSet := gr.EndColumnIndex > 0
-
-	// Entire sheet.
-	if !startRowSet && !startColSet && !endRowSet && !endColSet {
-		return strings.TrimSuffix(sheetPrefix, "!")
-	}
-	// GridRange shapes with start offsets but no end bounds do not have a
-	// straightforward A1 form accepted by our parser; avoid emitting a
-	// misleading whole-sheet reference.
-	if !endRowSet && !endColSet {
-		return ""
-	}
-
-	startRow := gr.StartRowIndex + 1
-	endRow := gr.EndRowIndex
-	startCol := gr.StartColumnIndex + 1
-	endCol := gr.EndColumnIndex
-
-	// Column-only ranges (e.g. A:B) and column ranges with a row start (e.g. A5:B).
-	if endColSet && !endRowSet {
-		a, err := colIndexToLetters(int(startCol))
-		if err != nil {
-			return ""
-		}
-		b, err := colIndexToLetters(int(endCol))
-		if err != nil {
-			return ""
-		}
-		if gr.StartRowIndex > 0 {
-			return fmt.Sprintf("%s%s%d:%s", sheetPrefix, a, startRow, b)
-		}
-		return fmt.Sprintf("%s%s:%s", sheetPrefix, a, b)
-	}
-
-	// Row-only ranges (e.g. 1:10). If a column start exists without a column end,
-	// the A1 representation becomes non-obvious; skip.
-	if endRowSet && !endColSet {
-		if gr.StartColumnIndex > 0 {
-			return ""
-		}
-		return fmt.Sprintf("%s%d:%d", sheetPrefix, startRow, endRow)
-	}
-
-	// Rectangular range.
-	a, err := colIndexToLetters(int(startCol))
-	if err != nil {
-		return ""
-	}
-	b, err := colIndexToLetters(int(endCol))
-	if err != nil {
-		return ""
-	}
-	startCell := fmt.Sprintf("%s%d", a, startRow)
-	endCell := fmt.Sprintf("%s%d", b, endRow)
-	if startCell == endCell {
-		return fmt.Sprintf("%s%s", sheetPrefix, startCell)
-	}
-	return fmt.Sprintf("%s%s:%s", sheetPrefix, startCell, endCell)
-}
-
-func formatGridRangeSheetPrefix(sheetTitle string) string {
-	if sheetTitle == "" {
-		return ""
-	}
-	if simpleSheetNameRe.MatchString(sheetTitle) {
-		return sheetTitle + "!"
-	}
-	escaped := strings.ReplaceAll(sheetTitle, "'", "''")
-	return "'" + escaped + "'!"
 }

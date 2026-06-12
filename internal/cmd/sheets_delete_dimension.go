@@ -9,6 +9,7 @@ import (
 	"google.golang.org/api/sheets/v4"
 
 	"github.com/steipete/gogcli/internal/outfmt"
+	"github.com/steipete/gogcli/internal/sheetsa1"
 	"github.com/steipete/gogcli/internal/sheetsdimension"
 	"github.com/steipete/gogcli/internal/ui"
 )
@@ -207,8 +208,8 @@ func sheetsDeleteDimensionTableResults(
 		results = append(results, sheetsDeleteDimensionTable{
 			TableID:  update.TableID,
 			Name:     update.Name,
-			BeforeA1: gridRangeToA1(sheetTitle, update.Before),
-			AfterA1:  gridRangeToA1(sheetTitle, update.After),
+			BeforeA1: sheetsa1.FormatGridRange(sheetTitle, update.Before),
+			AfterA1:  sheetsa1.FormatGridRange(sheetTitle, update.After),
 			Range:    update.After,
 		})
 	}

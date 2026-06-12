@@ -8,6 +8,7 @@ import (
 	"google.golang.org/api/sheets/v4"
 
 	"github.com/steipete/gogcli/internal/outfmt"
+	"github.com/steipete/gogcli/internal/sheetsa1"
 	"github.com/steipete/gogcli/internal/ui"
 )
 
@@ -102,5 +103,5 @@ func sheetsTableDataRangeA1(sheetTitle string, table *sheets.Table) (string, boo
 	if dataRange.EndRowIndex <= dataRange.StartRowIndex {
 		return "", false
 	}
-	return gridRangeToA1(sheetTitle, &dataRange), true
+	return sheetsa1.FormatGridRange(sheetTitle, &dataRange), true
 }

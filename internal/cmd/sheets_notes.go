@@ -3,10 +3,10 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/steipete/gogcli/internal/outfmt"
+	"github.com/steipete/gogcli/internal/sheetsa1"
 	"github.com/steipete/gogcli/internal/ui"
 )
 
@@ -81,7 +81,7 @@ func (c *SheetsNotesCmd) Run(ctx context.Context, flags *RootFlags) error {
 					absCol := startCol + ci + 1
 					notes = append(notes, cellNote{
 						Sheet: sheetTitle,
-						A1:    formatA1Cell(sheetTitle, absRow, absCol),
+						A1:    sheetsa1.FormatCell(sheetTitle, absRow, absCol),
 						Row:   absRow,
 						Col:   absCol,
 						Value: cell.FormattedValue,
@@ -116,47 +116,6 @@ func (c *SheetsNotesCmd) Run(ctx context.Context, flags *RootFlags) error {
 		)
 	}
 	return nil
-}
-
-var simpleSheetNameRe = regexp.MustCompile(`^[A-Za-z0-9_]+$`)
-
-func formatA1Cell(sheetTitle string, row, col int) string {
-	colLetters, err := colIndexToLetters(col)
-	if err != nil || row <= 0 {
-		return ""
-	}
-	cell := fmt.Sprintf("%s%d", colLetters, row)
-	if sheetTitle == "" {
-		return cell
-	}
-	return formatSheetPrefix(sheetTitle) + cell
-}
-
-func formatSheetPrefix(sheetTitle string) string {
-	if sheetTitle == "" {
-		return ""
-	}
-	if simpleSheetNameRe.MatchString(sheetTitle) {
-		return sheetTitle + "!"
-	}
-	escaped := strings.ReplaceAll(sheetTitle, "'", "''")
-	return "'" + escaped + "'!"
-}
-
-func colIndexToLetters(col int) (string, error) {
-	if col <= 0 {
-		return "", fmt.Errorf("invalid column index %d", col)
-	}
-	var b []byte
-	for col > 0 {
-		col--
-		b = append(b, byte('A'+(col%26)))
-		col /= 26
-	}
-	for i, j := 0, len(b)-1; i < j; i, j = i+1, j-1 {
-		b[i], b[j] = b[j], b[i]
-	}
-	return string(b), nil
 }
 
 func oneLine(s string) string {

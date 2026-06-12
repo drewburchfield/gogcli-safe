@@ -10,6 +10,7 @@ import (
 	"google.golang.org/api/sheets/v4"
 
 	"github.com/steipete/gogcli/internal/outfmt"
+	"github.com/steipete/gogcli/internal/sheetsa1"
 	"github.com/steipete/gogcli/internal/sheetsformat"
 	"github.com/steipete/gogcli/internal/ui"
 )
@@ -358,7 +359,7 @@ func conditionalRuleItems(resp *sheets.Spreadsheet, onlySheet string) []conditio
 			}
 			if rule != nil {
 				for _, gr := range rule.Ranges {
-					item.Ranges = append(item.Ranges, gridRangeToA1(sheetTitle, gr))
+					item.Ranges = append(item.Ranges, sheetsa1.FormatGridRange(sheetTitle, gr))
 				}
 				if rule.BooleanRule != nil && rule.BooleanRule.Condition != nil {
 					item.Type = rule.BooleanRule.Condition.Type
