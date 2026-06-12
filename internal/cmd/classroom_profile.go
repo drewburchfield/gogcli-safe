@@ -28,7 +28,7 @@ func (c *ClassroomProfileGetCmd) Run(ctx context.Context, flags *RootFlags) erro
 		userID = "me"
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}

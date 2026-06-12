@@ -41,7 +41,7 @@ func (c *ClassroomGuardiansListCmd) Run(ctx context.Context, flags *RootFlags) e
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -122,7 +122,7 @@ func (c *ClassroomGuardiansGetCmd) Run(ctx context.Context, flags *RootFlags) er
 		return usage("empty guardianId")
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -171,7 +171,7 @@ func (c *ClassroomGuardiansDeleteCmd) Run(ctx context.Context, flags *RootFlags)
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -217,7 +217,7 @@ func (c *ClassroomGuardianInvitesListCmd) Run(ctx context.Context, flags *RootFl
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -306,7 +306,7 @@ func (c *ClassroomGuardianInvitesGetCmd) Run(ctx context.Context, flags *RootFla
 		return usage("empty invitationId")
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -359,7 +359,7 @@ func (c *ClassroomGuardianInvitesCreateCmd) Run(ctx context.Context, flags *Root
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}

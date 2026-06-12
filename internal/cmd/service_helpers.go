@@ -38,7 +38,7 @@ func requireGmailService(ctx context.Context, flags *RootFlags) (string, *gmail.
 }
 
 func requireClassroomService(ctx context.Context, flags *RootFlags) (string, *classroom.Service, error) {
-	return requireGoogleService(ctx, flags, newClassroomService)
+	return requireGoogleService(ctx, flags, classroomService)
 }
 
 func requireMeetService(ctx context.Context, flags *RootFlags) (string, *meet.Service, error) {

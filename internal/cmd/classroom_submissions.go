@@ -51,7 +51,7 @@ func (c *ClassroomSubmissionsListCmd) Run(ctx context.Context, flags *RootFlags)
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -159,7 +159,7 @@ func (c *ClassroomSubmissionsGetCmd) Run(ctx context.Context, flags *RootFlags) 
 		return usage("empty submissionId")
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -247,7 +247,7 @@ func submissionAction(ctx context.Context, flags *RootFlags, courseID, coursewor
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -347,7 +347,7 @@ func (c *ClassroomSubmissionsGradeCmd) Run(ctx context.Context, flags *RootFlags
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}

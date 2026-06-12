@@ -42,7 +42,7 @@ func (c *ClassroomInvitationsListCmd) Run(ctx context.Context, flags *RootFlags)
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -123,7 +123,7 @@ func (c *ClassroomInvitationsGetCmd) Run(ctx context.Context, flags *RootFlags) 
 		return usage("empty invitationId")
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -177,7 +177,7 @@ func (c *ClassroomInvitationsCreateCmd) Run(ctx context.Context, flags *RootFlag
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -219,7 +219,7 @@ func (c *ClassroomInvitationsAcceptCmd) Run(ctx context.Context, flags *RootFlag
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -261,7 +261,7 @@ func (c *ClassroomInvitationsDeleteCmd) Run(ctx context.Context, flags *RootFlag
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}

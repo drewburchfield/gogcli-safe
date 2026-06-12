@@ -41,7 +41,7 @@ func (c *ClassroomStudentsListCmd) Run(ctx context.Context, flags *RootFlags) er
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -119,7 +119,7 @@ func (c *ClassroomStudentsGetCmd) Run(ctx context.Context, flags *RootFlags) err
 		return usage("empty userId")
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -172,7 +172,7 @@ func (c *ClassroomStudentsAddCmd) Run(ctx context.Context, flags *RootFlags) err
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -224,7 +224,7 @@ func (c *ClassroomStudentsRemoveCmd) Run(ctx context.Context, flags *RootFlags) 
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -269,7 +269,7 @@ func (c *ClassroomTeachersListCmd) Run(ctx context.Context, flags *RootFlags) er
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -347,7 +347,7 @@ func (c *ClassroomTeachersGetCmd) Run(ctx context.Context, flags *RootFlags) err
 		return usage("empty userId")
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -395,7 +395,7 @@ func (c *ClassroomTeachersAddCmd) Run(ctx context.Context, flags *RootFlags) err
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -443,7 +443,7 @@ func (c *ClassroomTeachersRemoveCmd) Run(ctx context.Context, flags *RootFlags) 
 		return err
 	}
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}
@@ -486,7 +486,7 @@ func (c *ClassroomRosterCmd) Run(ctx context.Context, flags *RootFlags) error {
 	includeStudents := c.Students || (!c.Students && !c.Teachers)
 	includeTeachers := c.Teachers || (!c.Students && !c.Teachers)
 
-	svc, err := newClassroomService(ctx, account)
+	svc, err := classroomService(ctx, account)
 	if err != nil {
 		return wrapClassroomError(err)
 	}

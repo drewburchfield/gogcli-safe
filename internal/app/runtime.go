@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"google.golang.org/api/calendar/v3"
+	"google.golang.org/api/classroom/v1"
 	"google.golang.org/api/cloudidentity/v1"
 	"google.golang.org/api/docs/v1"
 	"google.golang.org/api/drive/v3"
@@ -25,6 +26,7 @@ type IO struct {
 
 type (
 	CalendarServiceFactory      func(context.Context, string) (*calendar.Service, error)
+	ClassroomServiceFactory     func(context.Context, string) (*classroom.Service, error)
 	CloudIdentityServiceFactory func(context.Context, string) (*cloudidentity.Service, error)
 	DocsServiceFactory          func(context.Context, string) (*docs.Service, error)
 	DocsHTTPClientFactory       func(context.Context, string) (*http.Client, error)
@@ -45,6 +47,7 @@ type ZoomMeetingClient interface {
 
 type Services struct {
 	Calendar        CalendarServiceFactory
+	Classroom       ClassroomServiceFactory
 	CloudIdentity   CloudIdentityServiceFactory
 	Docs            DocsServiceFactory
 	DocsHTTP        DocsHTTPClientFactory
