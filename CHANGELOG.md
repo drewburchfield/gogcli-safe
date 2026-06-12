@@ -21,6 +21,7 @@
 
 - Docs: recognize valid one-column Markdown tables, while preserving separator-shaped rows after the delimiter as table data.
 - Docs: scope default-tab named-range replace and delete requests correctly in multi-tab documents.
+- Forms: serialize `--quiz=false` explicitly so updating a form can disable quiz mode.
 
 ## 0.24.0 - 2026-06-11
 

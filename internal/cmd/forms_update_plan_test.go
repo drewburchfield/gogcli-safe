@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
@@ -33,6 +34,25 @@ func TestNewFormsUpdatePlan(t *testing.T) {
 	}
 	if !plan.Request.IncludeFormInResponse {
 		t.Fatal("IncludeFormInResponse = false")
+	}
+}
+
+func TestNewFormsUpdatePlanSendsFalseQuizValue(t *testing.T) {
+	t.Parallel()
+
+	plan, err := newFormsUpdatePlan(formsUpdateInput{
+		FormID: "form1",
+		Quiz:   "false",
+	})
+	if err != nil {
+		t.Fatalf("newFormsUpdatePlan: %v", err)
+	}
+	payload, err := json.Marshal(plan.Request)
+	if err != nil {
+		t.Fatalf("json.Marshal: %v", err)
+	}
+	if !strings.Contains(string(payload), `"isQuiz":false`) {
+		t.Fatalf("false quiz value omitted: %s", payload)
 	}
 }
 

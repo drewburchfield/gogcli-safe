@@ -65,7 +65,8 @@ func newFormsUpdatePlan(input formsUpdateInput) (formsUpdatePlan, error) {
 			UpdateSettings: &formsapi.UpdateSettingsRequest{
 				Settings: &formsapi.FormSettings{
 					QuizSettings: &formsapi.QuizSettings{
-						IsQuiz: isQuiz,
+						IsQuiz:          isQuiz,
+						ForceSendFields: []string{"IsQuiz"},
 					},
 				},
 				UpdateMask: "quizSettings.isQuiz",
