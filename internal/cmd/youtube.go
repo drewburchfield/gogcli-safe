@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -13,15 +14,16 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-const youtubeCommentsOAuthScope = "https://www.googleapis.com/auth/youtube.force-ssl"
+const youtubeForceSSLOAuthScope = "https://www.googleapis.com/auth/youtube.force-ssl"
 
 type YouTubeCmd struct {
-	Activities YouTubeActivitiesCmd `cmd:"" name:"activities" aliases:"activity" help:"List channel activities"`
-	Videos     YouTubeVideosCmd     `cmd:"" name:"videos" aliases:"video" help:"List or get videos"`
-	Playlists  YouTubePlaylistsCmd  `cmd:"" name:"playlists" aliases:"playlist" help:"List playlists"`
-	Comments   YouTubeCommentsCmd   `cmd:"" name:"comments" aliases:"comment" help:"List comment threads"`
-	Channels   YouTubeChannelsCmd   `cmd:"" name:"channels" aliases:"channel" help:"List channels"`
-	Search     YouTubeSearchCmd     `cmd:"" name:"search" aliases:"find" help:"Search YouTube for videos, channels, or playlists"`
+	Activities    YouTubeActivitiesCmd    `cmd:"" name:"activities" aliases:"activity" help:"List channel activities"`
+	Videos        YouTubeVideosCmd        `cmd:"" name:"videos" aliases:"video" help:"List or get videos"`
+	Playlists     YouTubePlaylistsCmd     `cmd:"" name:"playlists" aliases:"playlist" help:"Manage playlists"`
+	Comments      YouTubeCommentsCmd      `cmd:"" name:"comments" aliases:"comment" help:"List comment threads"`
+	Channels      YouTubeChannelsCmd      `cmd:"" name:"channels" aliases:"channel" help:"List channels"`
+	Search        YouTubeSearchCmd        `cmd:"" name:"search" aliases:"find" help:"Search YouTube for videos, channels, or playlists"`
+	Subscriptions YouTubeSubscriptionsCmd `cmd:"" name:"subscriptions" aliases:"subscription" help:"Manage channel subscriptions"`
 }
 
 type YouTubeActivitiesCmd struct {
@@ -172,7 +174,11 @@ func (c *YouTubeVideosListCmd) Run(ctx context.Context, flags *RootFlags) error 
 }
 
 type YouTubePlaylistsCmd struct {
-	List YouTubePlaylistsListCmd `cmd:"" name:"list" aliases:"ls" help:"List playlists by channel or authenticated user"`
+	List   YouTubePlaylistsListCmd   `cmd:"" name:"list" aliases:"ls" help:"List playlists by channel or authenticated user"`
+	Create YouTubePlaylistsCreateCmd `cmd:"" name:"create" help:"Create a new playlist"`
+	Add    YouTubePlaylistsAddCmd    `cmd:"" name:"add" help:"Add a video to a playlist"`
+	Remove YouTubePlaylistsRemoveCmd `cmd:"" name:"remove" aliases:"rm" help:"Remove a video from a playlist"`
+	Delete YouTubePlaylistsDeleteCmd `cmd:"" name:"delete" aliases:"del" help:"Delete a playlist"`
 }
 
 type YouTubePlaylistsListCmd struct {
@@ -242,6 +248,250 @@ func (c *YouTubePlaylistsListCmd) Run(ctx context.Context, flags *RootFlags) err
 		return err
 	}
 	printNextPageHint(u, resp.NextPageToken)
+	return nil
+}
+
+type YouTubePlaylistsCreateCmd struct {
+	Title       string `name:"title" required:"" help:"Playlist title"`
+	Description string `name:"description" help:"Playlist description"`
+	Privacy     string `name:"privacy" help:"Privacy: public, unlisted, private" default:"private" enum:"public,unlisted,private"`
+}
+
+func (c *YouTubePlaylistsCreateCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	title := strings.TrimSpace(c.Title)
+	if title == "" {
+		return usage("--title is required")
+	}
+	description := strings.TrimSpace(c.Description)
+	if err := dryRunExit(ctx, flags, "youtube.playlists.create", map[string]any{
+		"title":       title,
+		"description": description,
+		"privacy":     c.Privacy,
+	}); err != nil {
+		return err
+	}
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := getYouTubeWriteServiceForAccount(ctx, account)
+	if err != nil {
+		return err
+	}
+
+	pl, err := svc.Playlists.Insert([]string{"snippet", "status"}, &youtube.Playlist{
+		Snippet: &youtube.PlaylistSnippet{
+			Title:       title,
+			Description: description,
+		},
+		Status: &youtube.PlaylistStatus{
+			PrivacyStatus: c.Privacy,
+		},
+	}).Do()
+	if err != nil {
+		return wrapYouTubeWriteError(err, flags)
+	}
+
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"playlist": pl})
+	}
+	if outfmt.IsPlain(ctx) {
+		u.Out().Linef("id\t%s", pl.Id)
+		u.Out().Linef("title\t%s", title)
+		u.Out().Linef("privacy\t%s", c.Privacy)
+		return nil
+	}
+	u.Out().Printf("Created playlist: %s (ID: %s)\n", title, pl.Id)
+	return nil
+}
+
+type YouTubePlaylistsAddCmd struct {
+	PlaylistID string `name:"playlist-id" required:"" help:"Playlist ID"`
+	VideoID    string `name:"video-id" required:"" help:"Video ID to add"`
+	Position   int64  `name:"position" help:"Position in playlist (0-based); appends if not set" default:"-1"`
+}
+
+func (c *YouTubePlaylistsAddCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	playlistID := strings.TrimSpace(c.PlaylistID)
+	videoID := strings.TrimSpace(c.VideoID)
+	if playlistID == "" {
+		return usage("--playlist-id is required")
+	}
+	if videoID == "" {
+		return usage("--video-id is required")
+	}
+	if c.Position < -1 {
+		return usage("--position must be >= 0 when set")
+	}
+	request := map[string]any{
+		"playlistId": playlistID,
+		"videoId":    videoID,
+	}
+	if c.Position >= 0 {
+		request["position"] = c.Position
+	}
+	if err := dryRunExit(ctx, flags, "youtube.playlists.add", request); err != nil {
+		return err
+	}
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := getYouTubeWriteServiceForAccount(ctx, account)
+	if err != nil {
+		return err
+	}
+
+	item := &youtube.PlaylistItem{
+		Snippet: &youtube.PlaylistItemSnippet{
+			PlaylistId: playlistID,
+			ResourceId: &youtube.ResourceId{
+				Kind:    "youtube#video",
+				VideoId: videoID,
+			},
+		},
+	}
+	if c.Position >= 0 {
+		item.Snippet.Position = c.Position
+		item.Snippet.ForceSendFields = []string{"Position"}
+	}
+
+	result, err := svc.PlaylistItems.Insert([]string{"snippet"}, item).Do()
+	if err != nil {
+		return wrapYouTubeWriteError(err, flags)
+	}
+
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"playlistItem": result})
+	}
+	if outfmt.IsPlain(ctx) {
+		u.Out().Linef("item_id\t%s", result.Id)
+		u.Out().Linef("playlist_id\t%s", playlistID)
+		u.Out().Linef("video_id\t%s", videoID)
+		return nil
+	}
+	u.Out().Printf("Added video %s to playlist %s (item ID: %s)\n", videoID, playlistID, result.Id)
+	return nil
+}
+
+type YouTubePlaylistsRemoveCmd struct {
+	PlaylistID string `name:"playlist-id" help:"Playlist ID (required with --video-id)"`
+	VideoID    string `name:"video-id" help:"Video ID to remove"`
+	ItemID     string `name:"item-id" help:"Playlist item ID to remove directly"`
+}
+
+func (c *YouTubePlaylistsRemoveCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	playlistID := strings.TrimSpace(c.PlaylistID)
+	videoID := strings.TrimSpace(c.VideoID)
+	itemID := strings.TrimSpace(c.ItemID)
+	if videoID == "" && itemID == "" {
+		return usage("set --video-id or --item-id")
+	}
+	if videoID != "" && itemID != "" {
+		return usage("use either --video-id or --item-id, not both")
+	}
+	if videoID != "" && playlistID == "" {
+		return usage("--playlist-id is required with --video-id")
+	}
+
+	if itemID != "" {
+		if err := dryRunAndConfirmDestructive(ctx, flags, "youtube.playlists.remove", map[string]any{
+			"itemId": itemID,
+		}, fmt.Sprintf("remove playlist item %s", itemID)); err != nil {
+			return err
+		}
+	} else if flags != nil && flags.DryRun {
+		return dryRunAndConfirmDestructive(ctx, flags, "youtube.playlists.remove", map[string]any{
+			"playlistId": playlistID,
+			"videoId":    videoID,
+		}, fmt.Sprintf("remove video %s from playlist %s", videoID, playlistID))
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := getYouTubeWriteServiceForAccount(ctx, account)
+	if err != nil {
+		return err
+	}
+
+	if videoID != "" {
+		resp, lookupErr := svc.PlaylistItems.List([]string{"id"}).
+			PlaylistId(playlistID).
+			VideoId(videoID).
+			MaxResults(1).
+			Do()
+		if lookupErr != nil {
+			return wrapYouTubeWriteError(lookupErr, flags)
+		}
+		if len(resp.Items) == 0 {
+			return fmt.Errorf("video %s not found in playlist %s", videoID, playlistID)
+		}
+		itemID = resp.Items[0].Id
+		if err := dryRunAndConfirmDestructive(ctx, flagsWithoutDryRun(flags), "youtube.playlists.remove", map[string]any{
+			"itemId": itemID,
+		}, fmt.Sprintf("remove playlist item %s", itemID)); err != nil {
+			return err
+		}
+	}
+
+	if err := svc.PlaylistItems.Delete(itemID).Do(); err != nil {
+		return wrapYouTubeWriteError(err, flags)
+	}
+
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"removed": true, "itemId": itemID})
+	}
+	if outfmt.IsPlain(ctx) {
+		u.Out().Linef("removed\ttrue")
+		u.Out().Linef("item_id\t%s", itemID)
+		return nil
+	}
+	u.Out().Printf("Removed playlist item %s\n", itemID)
+	return nil
+}
+
+type YouTubePlaylistsDeleteCmd struct {
+	PlaylistID string `arg:"" name:"playlist-id" help:"Playlist ID to delete"`
+}
+
+func (c *YouTubePlaylistsDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	playlistID := strings.TrimSpace(c.PlaylistID)
+	if playlistID == "" {
+		return usage("playlist-id is required")
+	}
+	if err := dryRunAndConfirmDestructive(ctx, flags, "youtube.playlists.delete", map[string]any{
+		"playlistId": playlistID,
+	}, fmt.Sprintf("delete playlist %s", playlistID)); err != nil {
+		return err
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := getYouTubeWriteServiceForAccount(ctx, account)
+	if err != nil {
+		return err
+	}
+	if err := svc.Playlists.Delete(playlistID).Do(); err != nil {
+		return wrapYouTubeWriteError(err, flags)
+	}
+
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"deleted": true, "playlistId": playlistID})
+	}
+	if outfmt.IsPlain(ctx) {
+		u.Out().Linef("deleted\ttrue")
+		u.Out().Linef("playlist_id\t%s", playlistID)
+		return nil
+	}
+	u.Out().Printf("Deleted playlist %s\n", playlistID)
 	return nil
 }
 
@@ -461,6 +711,199 @@ func (c *YouTubeSearchListCmd) Run(ctx context.Context, flags *RootFlags) error 
 	return nil
 }
 
+type YouTubeSubscriptionsCmd struct {
+	List        YouTubeSubscriptionsListCmd        `cmd:"" name:"list" aliases:"ls" help:"List subscriptions for authenticated user"`
+	Subscribe   YouTubeSubscriptionsSubscribeCmd   `cmd:"" name:"subscribe" help:"Subscribe to a channel"`
+	Unsubscribe YouTubeSubscriptionsUnsubscribeCmd `cmd:"" name:"unsubscribe" help:"Unsubscribe from a channel"`
+}
+
+type YouTubeSubscriptionsListCmd struct {
+	Max  int64  `name:"max" aliases:"limit" help:"Max results per page" default:"50"`
+	Page string `name:"page" aliases:"cursor" help:"Page token"`
+	All  bool   `name:"all" aliases:"all-pages,allpages" help:"Fetch all pages"`
+}
+
+func (c *YouTubeSubscriptionsListCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	if err := validateYouTubeMax(c.Max); err != nil {
+		return err
+	}
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := getYouTubeServiceForAccount(ctx, account)
+	if err != nil {
+		return err
+	}
+
+	fetch := func(pageToken string) ([]*youtube.Subscription, string, error) {
+		resp, callErr := svc.Subscriptions.List([]string{"snippet"}).
+			Mine(true).
+			MaxResults(c.Max).
+			PageToken(pageToken).
+			Do()
+		if callErr != nil {
+			return nil, "", callErr
+		}
+		return youtubeItemsOrEmpty(resp.Items), resp.NextPageToken, nil
+	}
+	items, nextPageToken, err := loadPagedItems(c.Page, c.All, fetch)
+	if err != nil {
+		return err
+	}
+
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
+			"items":         youtubeItemsOrEmpty(items),
+			"nextPageToken": nextPageToken,
+		})
+	}
+	if len(items) == 0 {
+		u.Err().Println("No subscriptions")
+		return nil
+	}
+	w, flush := tableWriter(ctx)
+	defer flush()
+	fmt.Fprintln(w, "ID\tCHANNEL_ID\tTITLE\tSUBSCRIBED_AT")
+	for _, s := range items {
+		printSubscriptionRow(w, s)
+	}
+	printNextPageHint(u, nextPageToken)
+
+	return nil
+}
+
+func printSubscriptionRow(w io.Writer, s *youtube.Subscription) {
+	channelID := ""
+	title := ""
+	subscribedAt := ""
+	if s.Snippet != nil {
+		title = s.Snippet.Title
+		subscribedAt = s.Snippet.PublishedAt
+		if s.Snippet.ResourceId != nil {
+			channelID = s.Snippet.ResourceId.ChannelId
+		}
+	}
+	fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", s.Id, sanitizeTab(channelID), sanitizeTab(title), sanitizeTab(subscribedAt))
+}
+
+type YouTubeSubscriptionsSubscribeCmd struct {
+	ChannelID string `name:"channel-id" help:"Channel ID to subscribe to"`
+}
+
+func (c *YouTubeSubscriptionsSubscribeCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	channelID := strings.TrimSpace(c.ChannelID)
+	if channelID == "" {
+		return usage("--channel-id is required")
+	}
+	if err := dryRunExit(ctx, flags, "youtube.subscriptions.subscribe", map[string]any{
+		"channelId": channelID,
+	}); err != nil {
+		return err
+	}
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := getYouTubeWriteServiceForAccount(ctx, account)
+	if err != nil {
+		return err
+	}
+
+	sub, err := svc.Subscriptions.Insert([]string{"snippet"}, &youtube.Subscription{
+		Snippet: &youtube.SubscriptionSnippet{
+			ResourceId: &youtube.ResourceId{
+				Kind:      "youtube#channel",
+				ChannelId: channelID,
+			},
+		},
+	}).Do()
+	if err != nil {
+		return wrapYouTubeWriteError(err, flags)
+	}
+
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"subscription": sub})
+	}
+	if outfmt.IsPlain(ctx) {
+		u.Out().Linef("id\t%s", sub.Id)
+		u.Out().Linef("channel_id\t%s", channelID)
+		return nil
+	}
+	u.Out().Printf("Subscribed: %s (subscription ID: %s)\n", channelID, sub.Id)
+	return nil
+}
+
+type YouTubeSubscriptionsUnsubscribeCmd struct {
+	ID        string `name:"id" help:"Subscription ID (from subscriptions list)"`
+	ChannelID string `name:"channel-id" help:"Channel ID (looked up to find subscription ID)"`
+}
+
+func (c *YouTubeSubscriptionsUnsubscribeCmd) Run(ctx context.Context, flags *RootFlags) error {
+	u := ui.FromContext(ctx)
+	subID := strings.TrimSpace(c.ID)
+	channelID := strings.TrimSpace(c.ChannelID)
+	if subID == "" && channelID == "" {
+		return usage("set --id or --channel-id")
+	}
+	if subID != "" && channelID != "" {
+		return usage("use either --id or --channel-id, not both")
+	}
+
+	// For --id we have everything needed to confirm/dry-run before any I/O.
+	if subID != "" {
+		if confirmErr := dryRunAndConfirmDestructive(ctx, flags, "youtube.subscriptions.unsubscribe", map[string]any{"id": subID}, fmt.Sprintf("unsubscribe (subscription ID: %s)", subID)); confirmErr != nil {
+			return confirmErr
+		}
+	} else if flags != nil && flags.DryRun {
+		return dryRunAndConfirmDestructive(ctx, flags, "youtube.subscriptions.unsubscribe", map[string]any{"channelId": channelID}, fmt.Sprintf("unsubscribe from channel %s", channelID))
+	}
+
+	account, err := requireAccount(flags)
+	if err != nil {
+		return err
+	}
+	svc, err := getYouTubeWriteServiceForAccount(ctx, account)
+	if err != nil {
+		return err
+	}
+
+	if channelID != "" {
+		resp, lookupErr := svc.Subscriptions.List([]string{"id"}).
+			Mine(true).
+			ForChannelId(channelID).
+			MaxResults(1).
+			Do()
+		if lookupErr != nil {
+			return wrapYouTubeWriteError(lookupErr, flags)
+		}
+		if len(resp.Items) == 0 {
+			return fmt.Errorf("not subscribed to channel %s", channelID)
+		}
+		subID = resp.Items[0].Id
+		if confirmErr := dryRunAndConfirmDestructive(ctx, flags, "youtube.subscriptions.unsubscribe", map[string]any{"id": subID}, fmt.Sprintf("unsubscribe (subscription ID: %s)", subID)); confirmErr != nil {
+			return confirmErr
+		}
+	}
+
+	if err := svc.Subscriptions.Delete(subID).Do(); err != nil {
+		return wrapYouTubeWriteError(err, flags)
+	}
+
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"unsubscribed": true, "subscriptionId": subID})
+	}
+	if outfmt.IsPlain(ctx) {
+		u.Out().Linef("unsubscribed\ttrue")
+		u.Out().Linef("subscription_id\t%s", subID)
+		return nil
+	}
+	u.Out().Printf("Unsubscribed (subscription ID: %s)\n", subID)
+	return nil
+}
+
 func validateYouTubeMax(limit int64) error {
 	if limit < 1 || limit > 50 {
 		return usage("--max must be between 1 and 50")
@@ -535,6 +978,14 @@ func youtubeAccountSelectorPresent(flags *RootFlags) bool {
 }
 
 func wrapYouTubeCommentsError(err error, flags *RootFlags) error {
+	return wrapYouTubeForceSSLError(err, flags, "youtube comments")
+}
+
+func wrapYouTubeWriteError(err error, flags *RootFlags) error {
+	return wrapYouTubeForceSSLError(err, flags, "youtube mutations")
+}
+
+func wrapYouTubeForceSSLError(err error, flags *RootFlags, operation string) error {
 	if err == nil {
 		return nil
 	}
@@ -552,7 +1003,7 @@ func wrapYouTubeCommentsError(err error, flags *RootFlags) error {
 		return err
 	}
 	return errfmt.NewUserFacingError(
-		fmt.Sprintf("youtube comments OAuth requires %s; re-authenticate with: gog auth add %s --services youtube --extra-scopes %s --force-consent", youtubeCommentsOAuthScope, account, youtubeCommentsOAuthScope),
+		fmt.Sprintf("%s require OAuth scope %s; re-authenticate with: gog auth add %s --services youtube --extra-scopes %s --force-consent", operation, youtubeForceSSLOAuthScope, account, youtubeForceSSLOAuthScope),
 		err,
 	)
 }
