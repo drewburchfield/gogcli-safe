@@ -20,24 +20,20 @@ var errKeyringOpenBlocked = errors.New("keyring open blocked")
 // KeychainTrustApplication is false to match production config (see store.go).
 func keyringConfig(keyringDir string) keyring.Config {
 	return keyring.Config{
-		ServiceName:              keyringServiceName(),
+		ServiceName:              config.AppName,
 		KeychainTrustApplication: false,
 		AllowedBackends:          []keyring.BackendType{keyring.FileBackend},
 		FileDir:                  keyringDir,
-		FilePasswordFunc:         fileKeyringPasswordFunc(),
+		FilePasswordFunc:         fileKeyringPasswordFuncFrom("testpass", true, false),
 	}
 }
 
 func TestKeyringServiceName(t *testing.T) {
-	t.Setenv(keyringServiceNameEnv, "")
-
-	if got := keyringServiceName(); got != config.AppName {
+	if got := serviceNameFor(OpenOptions{}); got != config.AppName {
 		t.Fatalf("expected default service name %q, got %q", config.AppName, got)
 	}
 
-	t.Setenv(keyringServiceNameEnv, " custom-gog ")
-
-	if got := keyringServiceName(); got != "custom-gog" {
+	if got := serviceNameFor(OpenOptions{ServiceName: " custom-gog "}); got != "custom-gog" {
 		t.Fatalf("expected env service name, got %q", got)
 	}
 }
@@ -174,7 +170,9 @@ func TestResolveKeyringBackendInfo_Default(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 	t.Setenv("GOG_KEYRING_BACKEND", "")
 
-	info, err := ResolveKeyringBackendInfo()
+	layout := testSystemLayout(t, config.PathKindConfig)
+	store := config.NewConfigStore(layout)
+	info, err := ResolveKeyringBackendInfoWithOptions(systemTestOpenOptions(layout, store))
 	if err != nil {
 		t.Fatalf("ResolveKeyringBackendInfo: %v", err)
 	}
@@ -194,20 +192,19 @@ func TestResolveKeyringBackendInfo_Config(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 	t.Setenv("GOG_KEYRING_BACKEND", "")
 
-	path, err := config.ConfigPath()
-	if err != nil {
-		t.Fatalf("ConfigPath: %v", err)
-	}
+	layout := testSystemLayout(t, config.PathKindConfig)
+	store := config.NewConfigStore(layout)
+	path := store.Path()
 
-	if err = os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	if err = os.WriteFile(path, []byte(`{ keyring_backend: "file" }`), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(`{ keyring_backend: "file" }`), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 
-	info, err := ResolveKeyringBackendInfo()
+	info, err := ResolveKeyringBackendInfoWithOptions(systemTestOpenOptions(layout, store))
 	if err != nil {
 		t.Fatalf("ResolveKeyringBackendInfo: %v", err)
 	}
@@ -227,20 +224,19 @@ func TestResolveKeyringBackendInfo_EnvOverridesConfig(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 	t.Setenv("GOG_KEYRING_BACKEND", "keychain")
 
-	path, err := config.ConfigPath()
-	if err != nil {
-		t.Fatalf("ConfigPath: %v", err)
-	}
+	layout := testSystemLayout(t, config.PathKindConfig)
+	store := config.NewConfigStore(layout)
+	path := store.Path()
 
-	if err = os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
 
-	if err = os.WriteFile(path, []byte(`{ keyring_backend: "file" }`), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(`{ keyring_backend: "file" }`), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 
-	info, err := ResolveKeyringBackendInfo()
+	info, err := ResolveKeyringBackendInfoWithOptions(systemTestOpenOptions(layout, store))
 	if err != nil {
 		t.Fatalf("ResolveKeyringBackendInfo: %v", err)
 	}
@@ -254,7 +250,7 @@ func TestResolveKeyringBackendInfo_EnvOverridesConfig(t *testing.T) {
 	}
 }
 
-func TestResolveKeyringBackendInfoForUsesInjectedStore(t *testing.T) {
+func TestResolveKeyringBackendInfoUsesInjectedStore(t *testing.T) {
 	t.Setenv("GOG_KEYRING_BACKEND", "")
 
 	layout := config.Layout{ConfigDir: t.TempDir()}
@@ -264,9 +260,9 @@ func TestResolveKeyringBackendInfoForUsesInjectedStore(t *testing.T) {
 		t.Fatalf("write config: %v", err)
 	}
 
-	info, err := ResolveKeyringBackendInfoFor(store)
+	info, err := ResolveKeyringBackendInfoWithOptions(OpenOptions{Layout: layout, Config: store})
 	if err != nil {
-		t.Fatalf("ResolveKeyringBackendInfoFor: %v", err)
+		t.Fatalf("ResolveKeyringBackendInfoWithOptions: %v", err)
 	}
 
 	if info.Value != "file" || info.Source != keyringBackendSourceConfig {
@@ -380,7 +376,7 @@ func TestOpenKeyringWithTimeout_Success(t *testing.T) {
 	t.Setenv("GOG_KEYRING_BACKEND", "file")
 	t.Setenv("GOG_KEYRING_PASSWORD", "testpass")
 
-	keyringDir, err := config.EnsureKeyringDir()
+	keyringDir, err := testSystemLayout(t, config.PathKindConfig, config.PathKindData).EnsureKeyringDir()
 	if err != nil {
 		t.Fatalf("EnsureKeyringDir: %v", err)
 	}
@@ -405,7 +401,7 @@ func TestOpenKeyringWithTimeout_Timeout(t *testing.T) {
 	t.Setenv("GOG_KEYRING_BACKEND", "file")
 	t.Setenv("GOG_KEYRING_PASSWORD", "testpass")
 
-	keyringDir, err := config.EnsureKeyringDir()
+	keyringDir, err := testSystemLayout(t, config.PathKindConfig, config.PathKindData).EnsureKeyringDir()
 	if err != nil {
 		t.Fatalf("EnsureKeyringDir: %v", err)
 	}
@@ -448,10 +444,7 @@ func TestOpenKeyring_NoDBus_ForcesFileBackend(t *testing.T) {
 	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "")   // no D-Bus
 
 	// Should succeed using file backend (not hang on D-Bus)
-	store, err := OpenDefault()
-	if err != nil {
-		t.Fatalf("OpenDefault with no D-Bus: %v", err)
-	}
+	store := openSystemTestStore(t)
 
 	if store == nil {
 		t.Fatal("expected non-nil store")
@@ -527,10 +520,7 @@ func TestOpenKeyring_ExplicitBackend_IgnoresDBusDetection(t *testing.T) {
 	t.Setenv("DBUS_SESSION_BUS_ADDRESS", "") // no D-Bus (shouldn't matter)
 
 	// Should succeed with explicit file backend
-	store, err := OpenDefault()
-	if err != nil {
-		t.Fatalf("OpenDefault with explicit file backend: %v", err)
-	}
+	store := openSystemTestStore(t)
 
 	if store == nil {
 		t.Fatal("expected non-nil store")

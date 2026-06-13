@@ -43,13 +43,13 @@ func TestTokenSourceForServiceAccountScopesUsesInjectedStore(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(ambientHome, "xdg-config"))
 	t.Setenv("XDG_DATA_HOME", filepath.Join(ambientHome, "xdg-data"))
 
-	ambientPath, err := config.ServiceAccountPath("a@b.com")
+	ambientLayout, err := config.NewSystemResolver("").Resolve(config.PathKindData)
 	if err != nil {
-		t.Fatalf("ServiceAccountPath: %v", err)
+		t.Fatalf("resolve ambient layout: %v", err)
 	}
-
-	if _, ensureErr := config.EnsureDataDir(); ensureErr != nil {
-		t.Fatalf("EnsureDataDir: %v", ensureErr)
+	ambientPath := ambientLayout.ServiceAccountPath("a@b.com")
+	if ensureErr := os.MkdirAll(ambientLayout.DataDir, 0o700); ensureErr != nil {
+		t.Fatalf("ensure data dir: %v", ensureErr)
 	}
 
 	if writeErr := os.WriteFile(ambientPath, []byte("ambient"), 0o600); writeErr != nil {

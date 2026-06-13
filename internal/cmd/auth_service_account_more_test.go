@@ -33,10 +33,7 @@ func TestAuthServiceAccountSet_AndList_Text(t *testing.T) {
 		t.Fatalf("unexpected output: %q", out)
 	}
 
-	storedPath, err := config.ServiceAccountPath("user@example.com")
-	if err != nil {
-		t.Fatalf("ServiceAccountPath: %v", err)
-	}
+	storedPath := defaultLayoutForTest(t, config.PathKindData).ServiceAccountPath("user@example.com")
 	if _, err := os.Stat(storedPath); err != nil {
 		t.Fatalf("expected stored key at %q: %v", storedPath, err)
 	}
@@ -86,7 +83,7 @@ func TestAuthServiceAccountCommandsUseInjectedLayout(t *testing.T) {
 	if _, err := os.Stat(storedPath); err != nil {
 		t.Fatalf("expected injected service account path %q: %v", storedPath, err)
 	}
-	ambientLayout, err := config.ResolveSystemLayoutFor("", config.PathKindData)
+	ambientLayout, err := config.NewSystemResolver("").Resolve(config.PathKindData)
 	if err != nil {
 		t.Fatalf("resolve ambient layout: %v", err)
 	}
@@ -141,10 +138,7 @@ func TestAuthServiceAccountSet_ReadsKeyFromStdin(t *testing.T) {
 		t.Fatalf("unexpected output: %q", out)
 	}
 
-	storedPath, err := config.ServiceAccountPath("stdin@example.com")
-	if err != nil {
-		t.Fatalf("ServiceAccountPath: %v", err)
-	}
+	storedPath := defaultLayoutForTest(t, config.PathKindData).ServiceAccountPath("stdin@example.com")
 	stored, err := os.ReadFile(storedPath)
 	if err != nil {
 		t.Fatalf("read stored key: %v", err)
@@ -171,10 +165,7 @@ func TestAuthServiceAccountSet_ReadsKeyFromEnv(t *testing.T) {
 		t.Fatalf("unexpected output: %q", out)
 	}
 
-	storedPath, err := config.ServiceAccountPath("env@example.com")
-	if err != nil {
-		t.Fatalf("ServiceAccountPath: %v", err)
-	}
+	storedPath := defaultLayoutForTest(t, config.PathKindData).ServiceAccountPath("env@example.com")
 	stored, err := os.ReadFile(storedPath)
 	if err != nil {
 		t.Fatalf("read stored key: %v", err)
@@ -261,12 +252,10 @@ func TestAuthServiceAccountStatus_ConfiguredTextShowsStored(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 
-	path, err := config.ServiceAccountPath("user@example.com")
-	if err != nil {
-		t.Fatalf("ServiceAccountPath: %v", err)
-	}
-	if _, err := config.EnsureDataDir(); err != nil {
-		t.Fatalf("EnsureDataDir: %v", err)
+	layout := defaultLayoutForTest(t, config.PathKindData)
+	path := layout.ServiceAccountPath("user@example.com")
+	if err := os.MkdirAll(layout.DataDir, 0o700); err != nil {
+		t.Fatalf("ensure data dir: %v", err)
 	}
 	if err := os.WriteFile(path, []byte(`{"type":"service_account","client_email":"svc@example.com","client_id":"123"}`), 0o600); err != nil {
 		t.Fatalf("write key: %v", err)

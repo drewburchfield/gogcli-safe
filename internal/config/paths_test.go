@@ -13,9 +13,10 @@ func TestPaths_CreateDirs(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 
-	dir, err := EnsureDir()
-	if err != nil {
-		t.Fatalf("EnsureDir: %v", err)
+	layout := testSystemLayout(t, PathKindConfig, PathKindData)
+	dir := layout.ConfigDir
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatalf("ensure config dir: %v", err)
 	}
 
 	if _, statErr := os.Stat(dir); statErr != nil {
@@ -26,7 +27,7 @@ func TestPaths_CreateDirs(t *testing.T) {
 		t.Fatalf("unexpected base: %q", filepath.Base(dir))
 	}
 
-	keyringDir, err := EnsureKeyringDir()
+	keyringDir, err := layout.EnsureKeyringDir()
 	if err != nil {
 		t.Fatalf("EnsureKeyringDir: %v", err)
 	}
@@ -35,7 +36,7 @@ func TestPaths_CreateDirs(t *testing.T) {
 		t.Fatalf("expected keyring dir: %v", statErr)
 	}
 
-	credsPath, err := ClientCredentialsPath()
+	credsPath, err := layout.ClientCredentialsPathFor(DefaultClientName)
 	if err != nil {
 		t.Fatalf("ClientCredentialsPath: %v", err)
 	}
@@ -112,15 +113,9 @@ func TestKeepServiceAccountPath_SafeFilename(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 
-	dir, err := DataDir()
-	if err != nil {
-		t.Fatalf("DataDir: %v", err)
-	}
-
-	p, err := KeepServiceAccountPath("a/b@EXAMPLE.com")
-	if err != nil {
-		t.Fatalf("KeepServiceAccountPath: %v", err)
-	}
+	layout := testSystemLayout(t, PathKindData)
+	dir := layout.DataDir
+	p := layout.KeepServiceAccountPath("a/b@EXAMPLE.com")
 
 	if filepath.Dir(p) != dir {
 		t.Fatalf("expected keep path under %q, got %q", dir, p)

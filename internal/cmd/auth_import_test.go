@@ -368,7 +368,7 @@ func TestAuthImportCmd_CustomClientNamespace(t *testing.T) {
 	if _, err := store.GetToken("default", "a@b.com"); err == nil {
 		t.Fatalf("expected no token under default client")
 	}
-	cfg, err := config.ReadConfig()
+	cfg, err := defaultConfigStoreForTest(t).Read()
 	if err != nil {
 		t.Fatalf("ReadConfig: %v", err)
 	}
@@ -381,7 +381,7 @@ func TestAuthImportCmd_UsesConfiguredClientMapping(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
-	if err := config.WriteConfig(config.File{ClientDomains: map[string]string{
+	if err := defaultConfigStoreForTest(t).Write(config.File{ClientDomains: map[string]string{
 		"example.com": "work",
 	}}); err != nil {
 		t.Fatalf("WriteConfig: %v", err)

@@ -17,15 +17,6 @@ func NewClientCredentialsStore(layout Layout) *ClientCredentialsStore {
 	return &ClientCredentialsStore{layout: layout}
 }
 
-func DefaultClientCredentialsStore() (*ClientCredentialsStore, error) {
-	layout, err := currentLayoutFor(PathKindConfig, PathKindData)
-	if err != nil {
-		return nil, err
-	}
-
-	return NewClientCredentialsStore(layout), nil
-}
-
 func (s *ClientCredentialsStore) PathFor(client string) (string, error) {
 	return s.layout.ClientCredentialsPathFor(client)
 }

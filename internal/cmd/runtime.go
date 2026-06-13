@@ -25,6 +25,7 @@ var (
 	errIncompleteRuntimeLayout = errors.New("injected config store has incomplete runtime layout")
 	errRuntimeLayoutMismatch   = errors.New("runtime layout does not match injected config store")
 	errRuntimeKeyringRequired  = errors.New("runtime keyring options are required")
+	errRuntimeRequired         = errors.New("command runtime is required")
 )
 
 func newDefaultRuntime() *app.Runtime {
@@ -324,7 +325,7 @@ func commandLayout(ctx context.Context, kinds ...config.PathKind) (config.Layout
 		}
 		return runtime.Layout, nil
 	}
-	return config.ResolveSystemLayoutFor("", kinds...)
+	return config.Layout{}, errRuntimeRequired
 }
 
 func commandServiceAccountStore(ctx context.Context) (*config.ServiceAccountStore, error) {
@@ -339,12 +340,16 @@ func commandServiceAccountStore(ctx context.Context) (*config.ServiceAccountStor
 		return runtime.ServiceAccounts, nil
 	}
 
-	layout, err := config.ResolveSystemLayoutFor("", config.PathKindConfig, config.PathKindData)
-	if err != nil {
-		return nil, err
+	return nil, errRuntimeRequired
+}
+
+func commandUserConfigBase(ctx context.Context) (string, error) {
+	runtime, ok := app.FromContext(ctx)
+	if !ok || runtime.LayoutResolver == nil {
+		return "", errRuntimeRequired
 	}
 
-	return config.NewServiceAccountStore(layout), nil
+	return runtime.LayoutResolver.UserConfigBase()
 }
 
 func resolveRuntimeClient(runtime *app.Runtime, email string, override string) (string, error) {
@@ -456,7 +461,7 @@ func checkAuthRefreshToken(ctx context.Context, client, refreshToken string, sco
 	if runtime, ok := app.FromContext(ctx); ok && runtime.Auth.CheckRefreshToken != nil {
 		return runtime.Auth.CheckRefreshToken(ctx, client, refreshToken, scopes, timeout)
 	}
-	return googleauth.CheckRefreshToken(ctx, client, refreshToken, scopes, timeout)
+	return fmt.Errorf("%w: refresh token check", errRuntimeServiceRequired)
 }
 
 func buildManualAuthURL(ctx context.Context, options googleauth.AuthorizeOptions) (googleauth.ManualAuthURLResult, error) {
@@ -466,5 +471,5 @@ func buildManualAuthURL(ctx context.Context, options googleauth.AuthorizeOptions
 	if runtime, ok := app.FromContext(ctx); ok && runtime.Auth.ManualAuthURL != nil {
 		return runtime.Auth.ManualAuthURL(ctx, options)
 	}
-	return googleauth.ManualAuthURL(ctx, options)
+	return googleauth.ManualAuthURLResult{}, fmt.Errorf("%w: manual authorization URL", errRuntimeServiceRequired)
 }

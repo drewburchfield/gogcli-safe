@@ -138,10 +138,7 @@ func TestKeyringStoreFileBackendConcurrentSetToken(t *testing.T) {
 	t.Setenv(keyringBackendEnv, "file")
 	t.Setenv(keyringPasswordEnv, "test-pass")
 
-	store, err := OpenDefault()
-	if err != nil {
-		t.Fatalf("OpenDefault: %v", err)
-	}
+	store := openSystemTestStore(t)
 
 	keyringStore := store.(*KeyringStore)
 	if keyringStore.lock == nil {
@@ -201,10 +198,7 @@ func TestKeyringStoreKeysHideLockFile(t *testing.T) {
 	t.Setenv(keyringBackendEnv, "file")
 	t.Setenv(keyringPasswordEnv, "test-pass")
 
-	store, err := OpenDefault()
-	if err != nil {
-		t.Fatalf("OpenDefault: %v", err)
-	}
+	store := openSystemTestStore(t)
 
 	keys, err := store.Keys()
 	if err != nil {
@@ -223,6 +217,12 @@ func TestSetSecretFileBackendUsesSharedLock(t *testing.T) {
 	t.Setenv(keyringBackendEnv, "file")
 	t.Setenv(keyringPasswordEnv, "test-pass")
 
+	layout := testSystemLayout(t, config.PathKindConfig, config.PathKindData)
+	configStore := config.NewConfigStore(layout)
+	openStore := func() (Repository, error) {
+		return Open(systemTestOpenOptions(layout, configStore))
+	}
+
 	var wg sync.WaitGroup
 	errs := make(chan error, 8)
 
@@ -232,7 +232,12 @@ func TestSetSecretFileBackendUsesSharedLock(t *testing.T) {
 		go func(i int) {
 			defer wg.Done()
 
-			errs <- SetSecret("shared/secret", []byte(fmt.Sprintf("value-%d", i)))
+			store, err := openStore()
+			if err != nil {
+				errs <- err
+				return
+			}
+			errs <- store.SetSecret("shared/secret", []byte(fmt.Sprintf("value-%d", i)))
 		}(i)
 	}
 
@@ -245,7 +250,11 @@ func TestSetSecretFileBackendUsesSharedLock(t *testing.T) {
 		}
 	}
 
-	got, err := GetSecret("shared/secret")
+	store, err := openStore()
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	got, err := store.GetSecret("shared/secret")
 	if err != nil {
 		t.Fatalf("GetSecret: %v", err)
 	}

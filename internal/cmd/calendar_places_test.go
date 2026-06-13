@@ -32,7 +32,8 @@ func TestResolveCalendarPlaceTextSearch(t *testing.T) {
 	defer srv.Close()
 	t.Setenv("GOG_PLACES_BASE_URL", srv.URL)
 
-	place, err := resolveCalendarPlace(context.Background(), calendarPlaceLookup{LocationSearch: "cafe"})
+	ctx := withDefaultTestRuntime(context.Background())
+	place, err := resolveCalendarPlace(ctx, calendarPlaceLookup{LocationSearch: "cafe"})
 	if err != nil {
 		t.Fatalf("resolveCalendarPlace: %v", err)
 	}

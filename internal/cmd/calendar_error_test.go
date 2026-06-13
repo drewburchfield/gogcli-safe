@@ -63,7 +63,8 @@ func TestCalendarUpdate_AllDayRequiresFromTo(t *testing.T) {
 func TestCalendarDelete_NoInput(t *testing.T) {
 	flags := &RootFlags{Account: "a@b.com", NoInput: true}
 	cmd := &CalendarDeleteCmd{}
-	if err := runKong(t, cmd, []string{"cal1", "evt1"}, context.Background(), flags); err == nil || !strings.Contains(err.Error(), "refusing") {
+	ctx := withDefaultTestRuntime(context.Background())
+	if err := runKong(t, cmd, []string{"cal1", "evt1"}, ctx, flags); err == nil || !strings.Contains(err.Error(), "refusing") {
 		t.Fatalf("expected refusing error, got %v", err)
 	}
 }

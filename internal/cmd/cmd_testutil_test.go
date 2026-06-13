@@ -25,7 +25,7 @@ func newCmdOutputContext(t *testing.T, stdout, stderr io.Writer) context.Context
 	if err != nil {
 		t.Fatalf("ui.New: %v", err)
 	}
-	return withTestClientResolver(ui.WithUI(context.Background(), u))
+	return withTestRuntime(ui.WithUI(context.Background(), u), func(*app.Runtime) {})
 }
 
 func newCmdRuntimeOutputContext(t *testing.T, stdout, stderr io.Writer) context.Context {
@@ -74,16 +74,35 @@ func withTestRuntime(ctx context.Context, configure func(*app.Runtime)) context.
 	return app.WithRuntime(ctx, runtime)
 }
 
+func withDefaultTestRuntime(ctx context.Context) context.Context {
+	return withTestRuntime(ctx, func(*app.Runtime) {})
+}
+
 func withTestClientResolver(ctx context.Context) context.Context {
+	resolver := config.NewSystemResolver("")
+	resolveStores := func() (*config.ConfigStore, *config.ClientCredentialsStore, error) {
+		layout, err := resolver.Resolve(config.PathKindConfig, config.PathKindData)
+		if err != nil {
+			return nil, nil, err
+		}
+		return config.NewConfigStore(layout), config.NewClientCredentialsStore(layout), nil
+	}
 	ctx = authclient.WithClientResolver(ctx, func(email string, override string) (string, error) {
-		cfg, err := config.ReadConfig()
+		store, files, err := resolveStores()
 		if err != nil {
 			return "", err
 		}
-		return config.ResolveClientForAccount(cfg, email, override)
+		cfg, err := store.Read()
+		if err != nil {
+			return "", err
+		}
+		return config.ResolveClientForAccountWithCredentials(cfg, email, override, func(client string) (bool, error) {
+			_, ok, existingErr := files.ExistingPath(client)
+			return ok, existingErr
+		})
 	})
 	return authclient.WithEmailReferenceUpdater(ctx, func(oldEmail, newEmail string) error {
-		store, err := config.DefaultConfigStore()
+		store, _, err := resolveStores()
 		if err != nil {
 			return err
 		}
@@ -94,11 +113,22 @@ func withTestClientResolver(ctx context.Context) context.Context {
 func defaultConfigStoreForTest(t *testing.T) *config.ConfigStore {
 	t.Helper()
 
-	store, err := config.DefaultConfigStore()
+	return config.NewConfigStore(defaultLayoutForTest(t, config.PathKindConfig))
+}
+
+func defaultLayoutForTest(t *testing.T, kinds ...config.PathKind) config.Layout {
+	t.Helper()
+
+	layout, err := config.NewSystemResolver("").Resolve(kinds...)
 	if err != nil {
-		t.Fatalf("config.DefaultConfigStore: %v", err)
+		t.Fatalf("resolve test layout: %v", err)
 	}
-	return store
+	return layout
+}
+
+func defaultCredentialsStoreForTest(t *testing.T) *config.ClientCredentialsStore {
+	t.Helper()
+	return config.NewClientCredentialsStore(defaultLayoutForTest(t, config.PathKindConfig, config.PathKindData))
 }
 
 func withAuthStore(ctx context.Context, store secrets.Store) context.Context {

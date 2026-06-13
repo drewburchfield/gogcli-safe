@@ -16,7 +16,7 @@ func openAuthSecretsStore(ctx context.Context) (secrets.Store, error) {
 	if runtime, ok := app.FromContext(ctx); ok && runtime.Auth.OpenSecretsStore != nil {
 		return runtime.Auth.OpenSecretsStore()
 	}
-	return secrets.OpenDefault()
+	return nil, errRuntimeRequired
 }
 
 func authorizeGoogleAccount(ctx context.Context, opts googleauth.AuthorizeOptions) (string, error) {
@@ -26,7 +26,7 @@ func authorizeGoogleAccount(ctx context.Context, opts googleauth.AuthorizeOption
 	if runtime, ok := app.FromContext(ctx); ok && runtime.Auth.AuthorizeGoogle != nil {
 		return runtime.Auth.AuthorizeGoogle(ctx, opts)
 	}
-	return googleauth.Authorize(ctx, opts)
+	return "", fmt.Errorf("%w: Google authorization", errRuntimeServiceRequired)
 }
 
 func bindManualAuthStateStore(ctx context.Context, opts *googleauth.AuthorizeOptions) error {
@@ -55,7 +55,7 @@ func fetchAuthIdentity(
 	if runtime, ok := app.FromContext(ctx); ok && runtime.Auth.FetchAuthorizedIdentity != nil {
 		return runtime.Auth.FetchAuthorizedIdentity(ctx, client, refreshToken, scopes, timeout)
 	}
-	return googleauth.IdentityForRefreshToken(ctx, client, refreshToken, scopes, timeout)
+	return googleauth.Identity{}, fmt.Errorf("%w: authorized identity", errRuntimeServiceRequired)
 }
 
 func ensureKeychainAccessIfNeeded(ctx context.Context) error {
@@ -69,20 +69,14 @@ func ensureKeychainAccessIfNeeded(ctx context.Context) error {
 	if runtime, ok := app.FromContext(ctx); ok && runtime.Auth.EnsureKeychainAccess != nil {
 		return runtime.Auth.EnsureKeychainAccess(ctx)
 	}
-	return secrets.EnsureKeychainAccessContext(ctx)
+	return fmt.Errorf("%w: keychain access", errRuntimeServiceRequired)
 }
 
 func resolveKeyringBackendInfo(ctx context.Context) (secrets.KeyringBackendInfo, error) {
 	if runtime, ok := app.FromContext(ctx); ok {
 		return runtimeKeyringBackendInfo(runtime)
 	}
-
-	store, err := commandConfigStore(ctx)
-	if err != nil {
-		return secrets.KeyringBackendInfo{}, err
-	}
-
-	return secrets.ResolveKeyringBackendInfoFor(store)
+	return secrets.KeyringBackendInfo{}, errRuntimeRequired
 }
 
 func normalizeEmail(value string) string {

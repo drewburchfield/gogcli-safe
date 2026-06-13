@@ -68,13 +68,16 @@ func TestRequireAccount_ResolvesAliasFlag(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
-	if err := config.WriteConfig(config.File{
+	if err := defaultConfigStoreForTest(t).Write(config.File{
 		AccountAliases: map[string]string{"work": "alias@example.com"},
 	}); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 
-	flags := &RootFlags{Account: "work"}
+	flags := &RootFlags{
+		Account:             "work",
+		configStoreResolver: func() (*config.ConfigStore, error) { return defaultConfigStoreForTest(t), nil },
+	}
 	got, err := requireAccount(flags)
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -88,14 +91,16 @@ func TestRequireAccount_ResolvesAliasEnv(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
-	if err := config.WriteConfig(config.File{
+	if err := defaultConfigStoreForTest(t).Write(config.File{
 		AccountAliases: map[string]string{"work": "alias@example.com"},
 	}); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 
 	t.Setenv("GOG_ACCOUNT", "work")
-	flags := &RootFlags{}
+	flags := &RootFlags{
+		configStoreResolver: func() (*config.ConfigStore, error) { return defaultConfigStoreForTest(t), nil },
+	}
 	got, err := requireAccount(flags)
 	if err != nil {
 		t.Fatalf("err: %v", err)

@@ -40,10 +40,7 @@ func TestKeepServiceAccountLegacyPath(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg"))
 
-	path, err := KeepServiceAccountLegacyPath("User@Example.com")
-	if err != nil {
-		t.Fatalf("KeepServiceAccountLegacyPath: %v", err)
-	}
+	path := testSystemLayout(t, PathKindConfig).KeepServiceAccountLegacyPath("User@Example.com")
 
 	if !strings.Contains(path, "keep-sa-User@Example.com.json") {
 		t.Fatalf("unexpected path: %q", path)

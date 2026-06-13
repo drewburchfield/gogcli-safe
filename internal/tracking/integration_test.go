@@ -19,13 +19,14 @@ func TestIntegrationEncryptDecryptWithWorker(t *testing.T) {
 		t.Skip("set GOG_IT_ACCOUNT to run integration test")
 	}
 
-	layout, err := config.ResolveSystemLayoutFor("", config.PathKindConfig, config.PathKindData, config.PathKindState)
+	resolver := config.NewSystemResolver("")
+	layout, err := resolver.Resolve(config.PathKindConfig, config.PathKindData, config.PathKindState)
 	if err != nil {
 		t.Skipf("Tracking layout unavailable: %v", err)
 	}
 	legacyConfigBase := ""
 	if !layout.ExplicitState {
-		legacyConfigBase, err = config.ResolveUserConfigBase()
+		legacyConfigBase, err = resolver.UserConfigBase()
 		if err != nil {
 			t.Skipf("Legacy tracking path unavailable: %v", err)
 		}

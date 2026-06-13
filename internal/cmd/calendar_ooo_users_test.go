@@ -60,6 +60,7 @@ func TestCalendarOOOCmdRejectsDateOnlyAndAllDay(t *testing.T) {
 		t.Fatalf("ui.New: %v", uiErr)
 	}
 	ctx := ui.WithUI(context.Background(), u)
+	ctx = withDefaultTestRuntime(ctx)
 	flags := &RootFlags{Account: "a@b.com"}
 
 	if err := (&CalendarOOOCmd{From: "2025-01-01", To: "2025-01-02"}).Run(ctx, flags); err == nil || !strings.Contains(err.Error(), "out-of-office requires RFC3339 datetime") {

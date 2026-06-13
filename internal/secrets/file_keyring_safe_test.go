@@ -56,7 +56,7 @@ func TestFileSafeKeyringRoundTripWithFileBackend(t *testing.T) {
 	dir := t.TempDir()
 
 	inner, err := keyring.Open(keyring.Config{
-		ServiceName:      keyringServiceName(),
+		ServiceName:      config.AppName,
 		AllowedBackends:  []keyring.BackendType{keyring.FileBackend},
 		FileDir:          dir,
 		FilePasswordFunc: keyring.FixedStringPrompt("test-pass"),

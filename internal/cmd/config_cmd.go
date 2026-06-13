@@ -220,5 +220,5 @@ func commandConfigStore(ctx context.Context) (*config.ConfigStore, error) {
 		}
 		return runtime.Config, nil
 	}
-	return config.DefaultConfigStore()
+	return nil, errRuntimeRequired
 }

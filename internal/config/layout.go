@@ -76,7 +76,7 @@ func NewResolver(env Env, dirs UserDirs) *Resolver {
 }
 
 func NewSystemResolver(homeOverride string) *Resolver {
-	env := currentLayoutEnv()
+	env := systemLayoutEnv()
 	if strings.TrimSpace(homeOverride) != "" {
 		env.HomeOverride = homeOverride
 	}
@@ -104,6 +104,17 @@ func (r *Resolver) ValidateHomeOverride() error {
 
 	_, _, err := r.resolver.homeOverride()
 	return err
+}
+
+func (r *Resolver) UserConfigBase() (string, error) {
+	if r == nil || r.resolver == nil {
+		return "", errNilLayoutResolver
+	}
+
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.resolver.userConfigBase()
 }
 
 func ResolveLayout(env Env, dirs UserDirs) (Layout, error) {
@@ -427,9 +438,8 @@ func usesXDGDefaultsFor(goos string) bool {
 	}
 }
 
-func currentLayoutEnv() Env {
+func systemLayoutEnv() Env {
 	return Env{
-		HomeOverride:  homeOverride,
 		GOGHome:       os.Getenv("GOG_HOME"),
 		GOGConfigDir:  os.Getenv("GOG_CONFIG_DIR"),
 		GOGDataDir:    os.Getenv("GOG_DATA_DIR"),
@@ -449,26 +459,6 @@ func systemUserDirs() UserDirs {
 		ConfigDir: os.UserConfigDir,
 		CacheDir:  os.UserCacheDir,
 	}
-}
-
-func currentLayoutDir(kind PathKind) (string, error) {
-	layout, err := NewSystemResolver(homeOverride).Resolve(kind)
-	if err != nil {
-		return "", err
-	}
-	return layout.Dir(kind)
-}
-
-func currentLayoutFor(kinds ...PathKind) (Layout, error) {
-	return NewSystemResolver(homeOverride).Resolve(kinds...)
-}
-
-func ResolveSystemLayoutFor(homeOverride string, kinds ...PathKind) (Layout, error) {
-	return NewSystemResolver(homeOverride).Resolve(kinds...)
-}
-
-func ResolveUserConfigBase() (string, error) {
-	return resolveUserConfigBase(currentLayoutEnv(), systemUserDirs())
 }
 
 func resolveUserConfigBase(env Env, dirs UserDirs) (string, error) {
@@ -491,6 +481,32 @@ func resolveUserConfigBase(env Env, dirs UserDirs) (string, error) {
 		return configDir, nil
 	}
 	home, err := dirs.HomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolve home config dir: %w", err)
+	}
+	return filepath.Join(home, ".config"), nil
+}
+
+func (r *layoutResolver) userConfigBase() (string, error) {
+	if xdg := strings.TrimSpace(r.env.XDGConfigHome); filepath.IsAbs(xdg) {
+		return xdg, nil
+	}
+	if usesXDGDefaultsFor(r.dirs.GOOS) {
+		home, err := r.userHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("resolve home config dir: %w", err)
+		}
+		return filepath.Join(home, ".config"), nil
+	}
+
+	configDir, err := r.userConfigDir()
+	if err != nil {
+		return "", err
+	}
+	if filepath.IsAbs(configDir) {
+		return configDir, nil
+	}
+	home, err := r.userHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolve home config dir: %w", err)
 	}

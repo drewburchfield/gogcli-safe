@@ -21,6 +21,7 @@ func TestCalendarCreateCmd_ValidationErrors(t *testing.T) {
 		t.Fatalf("ui.New: %v", uiErr)
 	}
 	ctx := ui.WithUI(context.Background(), u)
+	ctx = withDefaultTestRuntime(ctx)
 	flags := &RootFlags{Account: "a@b.com"}
 
 	cases := []struct {
@@ -116,6 +117,7 @@ func TestCalendarUpdateCmd_ValidationErrors(t *testing.T) {
 		t.Fatalf("ui.New: %v", uiErr)
 	}
 	ctx := ui.WithUI(context.Background(), u)
+	ctx = withDefaultTestRuntime(ctx)
 	flags := &RootFlags{Account: "a@b.com"}
 
 	{
@@ -228,6 +230,7 @@ func TestCalendarDeleteCmd_ValidationErrors(t *testing.T) {
 		t.Fatalf("ui.New: %v", uiErr)
 	}
 	ctx := ui.WithUI(context.Background(), u)
+	ctx = withDefaultTestRuntime(ctx)
 	flags := &RootFlags{Account: "a@b.com"}
 
 	cases := []struct {

@@ -238,7 +238,7 @@ func TestExecute_GmailForward_SkipAttachments(t *testing.T) {
 
 func TestExecute_GmailForward_NoSendAccountBlocksBeforeSend(t *testing.T) {
 	setTestConfigHome(t)
-	if err := config.WriteConfig(config.File{
+	if err := defaultConfigStoreForTest(t).Write(config.File{
 		NoSendAccounts: map[string]bool{"me@example.com": true},
 	}); err != nil {
 		t.Fatalf("WriteConfig: %v", err)

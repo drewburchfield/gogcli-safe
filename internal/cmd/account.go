@@ -155,7 +155,7 @@ func openAccountSecretsStore(flags *RootFlags) (secrets.Store, error) {
 			return openStore()
 		}
 	}
-	return secrets.OpenDefault()
+	return nil, errRuntimeRequired
 }
 
 func directAccessToken(flags *RootFlags) string {
@@ -202,7 +202,7 @@ func accountConfigStore(flags *RootFlags) (*config.ConfigStore, error) {
 	if flags != nil && flags.configStoreResolver != nil {
 		return flags.configStoreResolver()
 	}
-	return config.DefaultConfigStore()
+	return nil, errRuntimeRequired
 }
 
 func shouldAutoSelectAccount(value string) bool {

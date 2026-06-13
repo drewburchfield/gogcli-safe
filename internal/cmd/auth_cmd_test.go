@@ -297,10 +297,7 @@ func TestAuthStatus_Text_ConfigFile(t *testing.T) {
 	os.Unsetenv("GOG_KEYRING_BACKEND")
 	t.Cleanup(func() { os.Setenv("GOG_KEYRING_BACKEND", "file") })
 
-	cfgPath, err := config.ConfigPath()
-	if err != nil {
-		t.Fatalf("ConfigPath: %v", err)
-	}
+	cfgPath := defaultConfigStoreForTest(t).Path()
 	if err := os.MkdirAll(filepath.Dir(cfgPath), 0o700); err != nil {
 		t.Fatalf("mkdir: %v", err)
 	}
@@ -755,7 +752,8 @@ func TestAuthRemove_CleansUpConfig(t *testing.T) {
 			"other@example.com":  "default",
 		},
 	}
-	if err := config.WriteConfig(cfg); err != nil {
+	configStore := defaultConfigStoreForTest(t)
+	if err := configStore.Write(cfg); err != nil {
 		t.Fatalf("WriteConfig: %v", err)
 	}
 
@@ -769,7 +767,7 @@ func TestAuthRemove_CleansUpConfig(t *testing.T) {
 	})
 
 	// Verify config was cleaned up.
-	updated, err := config.ReadConfig()
+	updated, err := configStore.Read()
 	if err != nil {
 		t.Fatalf("ReadConfig: %v", err)
 	}

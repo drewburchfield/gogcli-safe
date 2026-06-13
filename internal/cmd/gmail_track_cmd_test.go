@@ -30,13 +30,14 @@ func setupTrackingEnv(t *testing.T) {
 
 func trackingConfigStoreForTest(t *testing.T) *tracking.ConfigStore {
 	t.Helper()
-	layout, err := config.ResolveSystemLayoutFor("", config.PathKindConfig, config.PathKindState)
+	resolver := config.NewSystemResolver("")
+	layout, err := resolver.Resolve(config.PathKindConfig, config.PathKindState)
 	if err != nil {
 		t.Fatalf("resolve tracking layout: %v", err)
 	}
 	legacyConfigBase := ""
 	if !layout.ExplicitState {
-		legacyConfigBase, err = config.ResolveUserConfigBase()
+		legacyConfigBase, err = resolver.UserConfigBase()
 		if err != nil {
 			t.Fatalf("resolve user config base: %v", err)
 		}

@@ -82,6 +82,7 @@ func TestAuthKeepCmd_JSON_More(t *testing.T) {
 		t.Fatalf("ui.New: %v", uiErr)
 	}
 	ctx := outfmt.WithMode(ui.WithUI(context.Background(), u), outfmt.Mode{JSON: true})
+	ctx = withTestRuntime(ctx, func(*app.Runtime) {})
 
 	cmd := &AuthKeepCmd{Email: "user@example.com", Key: keyPath}
 	out := captureStdout(t, func() {

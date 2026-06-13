@@ -351,6 +351,48 @@ func TestResolveUserConfigBase(t *testing.T) {
 	})
 }
 
+func TestResolverUserConfigBaseSharesCapturedUserDirs(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	calls := 0
+	resolver := NewResolver(Env{XDGConfigHome: "relative"}, UserDirs{
+		GOOS: "linux",
+		HomeDir: func() (string, error) {
+			calls++
+			return home, nil
+		},
+	})
+
+	base, err := resolver.UserConfigBase()
+	if err != nil {
+		t.Fatalf("UserConfigBase: %v", err)
+	}
+	if base != filepath.Join(home, ".config") {
+		t.Fatalf("base = %q", base)
+	}
+
+	layout, err := resolver.Resolve(PathKindConfig)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if layout.ConfigDir != filepath.Join(home, ".config", AppName) {
+		t.Fatalf("config dir = %q", layout.ConfigDir)
+	}
+	if calls != 1 {
+		t.Fatalf("home resolver calls = %d, want 1", calls)
+	}
+}
+
+func TestNilResolverUserConfigBaseFails(t *testing.T) {
+	t.Parallel()
+
+	var resolver *Resolver
+	if _, err := resolver.UserConfigBase(); !errors.Is(err, errNilLayoutResolver) {
+		t.Fatalf("UserConfigBase() error = %v", err)
+	}
+}
+
 func TestResolveLayoutMemoizesUserHome(t *testing.T) {
 	t.Parallel()
 

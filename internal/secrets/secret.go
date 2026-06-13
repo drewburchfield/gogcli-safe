@@ -10,19 +10,6 @@ import (
 
 var errMissingSecretKey = errors.New("missing secret key")
 
-func SetSecret(key string, value []byte) error {
-	store, err := openDefaultRepository()
-	if err != nil {
-		return err
-	}
-
-	if err := store.SetSecret(key, value); err != nil {
-		return fmt.Errorf("set secret: %w", err)
-	}
-
-	return nil
-}
-
 func (s *KeyringStore) SetSecret(key string, value []byte) error {
 	key = strings.TrimSpace(key)
 	if key == "" {
@@ -36,20 +23,6 @@ func (s *KeyringStore) SetSecret(key string, value []byte) error {
 	}
 
 	return nil
-}
-
-func GetSecret(key string) ([]byte, error) {
-	store, err := openDefaultRepository()
-	if err != nil {
-		return nil, err
-	}
-
-	value, err := store.GetSecret(key)
-	if err != nil {
-		return nil, fmt.Errorf("get secret: %w", err)
-	}
-
-	return value, nil
 }
 
 func (s *KeyringStore) GetSecret(key string) ([]byte, error) {

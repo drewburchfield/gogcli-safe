@@ -137,10 +137,6 @@ func TestAuthStatusCmd_JSON(t *testing.T) {
 
 	ctx := newCmdJSONOutputContext(t, os.Stdout, os.Stderr)
 
-	if _, err := config.ConfigPath(); err != nil {
-		t.Fatalf("ConfigPath: %v", err)
-	}
-
 	cmd := AuthStatusCmd{}
 	out := captureStdout(t, func() {
 		if err := cmd.Run(ctx, &RootFlags{}); err != nil {
@@ -158,7 +154,8 @@ func TestAuthStatusCmd_JSONReportsLegacyCredentialsPath(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg"))
 	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "xdg-data"))
 
-	legacyPath, err := config.LegacyClientCredentialsPathFor(config.DefaultClientName)
+	legacyPath, err := defaultLayoutForTest(t, config.PathKindConfig).
+		LegacyClientCredentialsPathFor(config.DefaultClientName)
 	if err != nil {
 		t.Fatalf("LegacyClientCredentialsPathFor: %v", err)
 	}

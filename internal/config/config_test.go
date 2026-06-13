@@ -12,10 +12,7 @@ func TestConfigPath(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 
-	path, err := ConfigPath()
-	if err != nil {
-		t.Fatalf("ConfigPath: %v", err)
-	}
+	path := NewConfigStore(testSystemLayout(t, PathKindConfig)).Path()
 
 	if filepath.Base(path) != "config.json" {
 		t.Fatalf("unexpected config file: %q", filepath.Base(path))

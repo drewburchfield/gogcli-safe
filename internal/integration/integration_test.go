@@ -47,7 +47,7 @@ func integrationAccount(t *testing.T, store secrets.Store) string {
 func withIntegrationAuth(t *testing.T, ctx context.Context) (context.Context, secrets.Repository) {
 	t.Helper()
 
-	layout, err := config.ResolveSystemLayoutFor("", config.PathKindConfig, config.PathKindData)
+	layout, err := config.NewSystemResolver("").Resolve(config.PathKindConfig, config.PathKindData)
 	if err != nil {
 		t.Fatalf("resolve integration layout: %v", err)
 	}

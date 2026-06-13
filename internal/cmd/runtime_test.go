@@ -36,6 +36,7 @@ import (
 	"github.com/steipete/gogcli/internal/app"
 	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/googleapi"
+	"github.com/steipete/gogcli/internal/googleauth"
 	"github.com/steipete/gogcli/internal/secrets"
 )
 
@@ -140,6 +141,91 @@ func TestDriveServiceMissingRuntimeServiceFailsClosed(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "drive") {
 		t.Fatalf("driveService() error = %v, want service name", err)
+	}
+}
+
+func TestCommandDependenciesMissingRuntimeFailClosed(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	tests := []struct {
+		name string
+		run  func() error
+	}{
+		{
+			name: "layout",
+			run: func() error {
+				_, err := commandLayout(ctx, config.PathKindConfig)
+				return err
+			},
+		},
+		{
+			name: "config",
+			run: func() error {
+				_, err := commandConfigStore(ctx)
+				return err
+			},
+		},
+		{
+			name: "service accounts",
+			run: func() error {
+				_, err := commandServiceAccountStore(ctx)
+				return err
+			},
+		},
+		{
+			name: "secrets",
+			run: func() error {
+				_, err := openAuthSecretsStore(ctx)
+				return err
+			},
+		},
+		{
+			name: "authorize",
+			run: func() error {
+				_, err := authorizeGoogleAccount(ctx, googleauth.AuthorizeOptions{})
+				return err
+			},
+		},
+		{
+			name: "identity",
+			run: func() error {
+				_, err := fetchAuthIdentity(ctx, "", "", nil, time.Second)
+				return err
+			},
+		},
+		{name: "keychain", run: func() error { return ensureKeychainAccessIfNeeded(ctx) }},
+		{
+			name: "refresh check",
+			run: func() error {
+				return checkAuthRefreshToken(ctx, "", "", nil, time.Second)
+			},
+		},
+		{
+			name: "manual URL",
+			run: func() error {
+				_, err := buildManualAuthURL(ctx, googleauth.AuthorizeOptions{})
+				return err
+			},
+		},
+		{
+			name: "zoom",
+			run: func() error {
+				_, err := commandZoomStore(ctx)
+				return err
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			err := test.run()
+			if !errors.Is(err, errRuntimeRequired) && !errors.Is(err, errRuntimeServiceRequired) {
+				t.Fatalf("error = %v, want runtime dependency error", err)
+			}
+		})
 	}
 }
 

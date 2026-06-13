@@ -89,12 +89,13 @@ func TestClientCredentials_Roundtrip(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 
+	store := testClientCredentialsStore(t)
 	in := ClientCredentials{ClientID: "id", ClientSecret: "secret"}
-	if err := WriteClientCredentials(in); err != nil {
-		t.Fatalf("WriteClientCredentials: %v", err)
+	if err := store.Write(DefaultClientName, in); err != nil {
+		t.Fatalf("Write: %v", err)
 	}
 
-	p, err := ClientCredentialsPath()
+	p, err := store.PathFor(DefaultClientName)
 	if err != nil {
 		t.Fatalf("ClientCredentialsPath: %v", err)
 	}
@@ -107,7 +108,7 @@ func TestClientCredentials_Roundtrip(t *testing.T) {
 		t.Fatalf("stat credentials: %v", statErr)
 	}
 
-	out, err := ReadClientCredentials()
+	out, err := store.Read(DefaultClientName)
 	if err != nil {
 		t.Fatalf("ReadClientCredentials: %v", err)
 	}
@@ -122,12 +123,13 @@ func TestClientCredentials_MetadataRoundtrip(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 
+	store := testClientCredentialsStore(t)
 	in := ClientCredentials{ClientID: "id", ClientSecret: "secret"}
-	if err := WriteClientCredentialsMetadataFor("work", in); err != nil {
-		t.Fatalf("WriteClientCredentialsMetadataFor: %v", err)
+	if err := store.WriteMetadata("work", in); err != nil {
+		t.Fatalf("WriteMetadata: %v", err)
 	}
 
-	metadata, err := ReadClientCredentialsMetadataFor("work")
+	metadata, err := store.ReadMetadata("work")
 	if err != nil {
 		t.Fatalf("ReadClientCredentialsMetadataFor: %v", err)
 	}
@@ -135,7 +137,7 @@ func TestClientCredentials_MetadataRoundtrip(t *testing.T) {
 		t.Fatalf("unexpected metadata: %#v", metadata)
 	}
 
-	if _, err := ReadClientCredentialsFor("work"); err == nil {
+	if _, err := store.Read("work"); err == nil {
 		t.Fatalf("expected full credentials read to reject missing secret")
 	}
 }
@@ -145,7 +147,8 @@ func TestReadClientCredentials_Errors(t *testing.T) {
 	t.Setenv("HOME", home)
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 
-	_, err := ReadClientCredentials()
+	store := testClientCredentialsStore(t)
+	_, err := store.Read(DefaultClientName)
 	if err == nil {
 		t.Fatalf("expected error")
 	}
@@ -155,20 +158,20 @@ func TestReadClientCredentials_Errors(t *testing.T) {
 		t.Fatalf("expected CredentialsMissingError, got %T", err)
 	}
 
-	path, pathErr := ClientCredentialsPath()
+	path, pathErr := store.PathFor(DefaultClientName)
 	if pathErr != nil {
 		t.Fatalf("ClientCredentialsPath: %v", pathErr)
 	}
 
-	if _, dirErr := EnsureDataDir(); dirErr != nil {
-		t.Fatalf("EnsureDataDir: %v", dirErr)
+	if dirErr := os.MkdirAll(store.layout.DataDir, 0o700); dirErr != nil {
+		t.Fatalf("ensure data dir: %v", dirErr)
 	}
 
 	if writeErr := os.WriteFile(path, []byte(`{"client_id":""}`), 0o600); writeErr != nil {
 		t.Fatalf("write: %v", writeErr)
 	}
 
-	if _, err := ReadClientCredentials(); err == nil {
+	if _, err := store.Read(DefaultClientName); err == nil {
 		t.Fatalf("expected missing field error")
 	}
 }
@@ -179,7 +182,8 @@ func TestReadClientCredentials_LegacyConfigFallback(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "xdg-data"))
 
-	legacyPath, err := LegacyClientCredentialsPathFor("work")
+	store := testClientCredentialsStore(t)
+	legacyPath, err := store.legacyPathFor("work")
 	if err != nil {
 		t.Fatalf("LegacyClientCredentialsPathFor: %v", err)
 	}
@@ -190,7 +194,7 @@ func TestReadClientCredentials_LegacyConfigFallback(t *testing.T) {
 		t.Fatalf("write legacy: %v", writeErr)
 	}
 
-	creds, err := ReadClientCredentialsFor("work")
+	creds, err := store.Read("work")
 	if err != nil {
 		t.Fatalf("ReadClientCredentialsFor: %v", err)
 	}
@@ -198,7 +202,7 @@ func TestReadClientCredentials_LegacyConfigFallback(t *testing.T) {
 		t.Fatalf("unexpected credentials: %#v", creds)
 	}
 
-	primaryPath, err := ClientCredentialsPathFor("work")
+	primaryPath, err := store.PathFor("work")
 	if err != nil {
 		t.Fatalf("ClientCredentialsPathFor: %v", err)
 	}
@@ -213,9 +217,10 @@ func TestExistingClientCredentialsPathFor_LegacyConfigFallback(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 	t.Setenv("XDG_DATA_HOME", filepath.Join(home, "xdg-data"))
 
-	dir, err := EnsureDir()
-	if err != nil {
-		t.Fatalf("EnsureDir: %v", err)
+	store := testClientCredentialsStore(t)
+	dir := store.layout.ConfigDir
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		t.Fatalf("ensure config dir: %v", err)
 	}
 
 	legacyPath := filepath.Join(dir, "credentials-work.json")
@@ -223,7 +228,7 @@ func TestExistingClientCredentialsPathFor_LegacyConfigFallback(t *testing.T) {
 		t.Fatalf("write legacy credentials: %v", writeErr)
 	}
 
-	got, exists, err := ExistingClientCredentialsPathFor("work")
+	got, exists, err := store.ExistingPath("work")
 	if err != nil {
 		t.Fatalf("ExistingClientCredentialsPathFor: %v", err)
 	}
@@ -241,7 +246,8 @@ func TestClientCredentialsExplicitDataSkipsLegacyFallback(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 	t.Setenv("GOG_DATA_DIR", filepath.Join(home, "isolated-data"))
 
-	legacyPath, err := LegacyClientCredentialsPathFor("work")
+	store := testClientCredentialsStore(t)
+	legacyPath, err := store.legacyPathFor("work")
 	if err != nil {
 		t.Fatalf("LegacyClientCredentialsPathFor: %v", err)
 	}
@@ -252,11 +258,11 @@ func TestClientCredentialsExplicitDataSkipsLegacyFallback(t *testing.T) {
 		t.Fatalf("write legacy: %v", writeErr)
 	}
 
-	if _, readErr := ReadClientCredentialsFor("work"); readErr == nil {
+	if _, readErr := store.Read("work"); readErr == nil {
 		t.Fatalf("expected missing credentials with explicit data dir")
 	}
 
-	got, exists, err := ExistingClientCredentialsPathFor("work")
+	got, exists, err := store.ExistingPath("work")
 	if err != nil {
 		t.Fatalf("ExistingClientCredentialsPathFor: %v", err)
 	}
@@ -274,7 +280,8 @@ func TestDeleteClientCredentialsExplicitDataKeepsLegacyFile(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 	t.Setenv("GOG_DATA_DIR", filepath.Join(home, "isolated-data"))
 
-	legacyPath, err := LegacyClientCredentialsPathFor("work")
+	store := testClientCredentialsStore(t)
+	legacyPath, err := store.legacyPathFor("work")
 	if err != nil {
 		t.Fatalf("LegacyClientCredentialsPathFor: %v", err)
 	}
@@ -285,7 +292,7 @@ func TestDeleteClientCredentialsExplicitDataKeepsLegacyFile(t *testing.T) {
 		t.Fatalf("write legacy: %v", writeErr)
 	}
 
-	if err := DeleteClientCredentialsFor("work"); err == nil {
+	if err := store.Delete("work"); err == nil {
 		t.Fatalf("expected missing credentials with explicit data dir")
 	}
 	if _, statErr := os.Stat(legacyPath); statErr != nil {

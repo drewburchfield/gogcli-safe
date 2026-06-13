@@ -21,7 +21,14 @@ func defaultAuthTestOperations() (
 	app.EnsureKeychainAccessFunc,
 	app.FetchAuthorizedIdentityFunc,
 ) {
-	return secrets.OpenDefault, googleauth.Authorize, secrets.EnsureKeychainAccessContext, googleauth.IdentityForRefreshToken
+	openStore := func() (secrets.Store, error) {
+		layout, err := config.NewSystemResolver("").Resolve(config.PathKindConfig, config.PathKindData)
+		if err != nil {
+			return nil, err
+		}
+		return secrets.Open(systemKeyringOpenOptions(layout, config.NewConfigStore(layout)))
+	}
+	return openStore, googleauth.Authorize, secrets.EnsureKeychainAccessContext, googleauth.IdentityForRefreshToken
 }
 
 func runtimeWithAuthTestOperations(

@@ -74,10 +74,6 @@ func DomainFromEmail(email string) string {
 	return strings.TrimSpace(parts[1])
 }
 
-func ResolveClientForAccount(cfg File, email string, override string) (string, error) {
-	return ResolveClientForAccountWithCredentials(cfg, email, override, ClientCredentialsExists)
-}
-
 func ResolveClientForAccountWithCredentials(
 	cfg File,
 	email string,
@@ -194,13 +190,4 @@ type ClientCredentialsInfo struct {
 	Client  string `json:"client"`
 	Path    string `json:"path"`
 	Default bool   `json:"default"`
-}
-
-func ListClientCredentials() ([]ClientCredentialsInfo, error) {
-	store, err := DefaultClientCredentialsStore()
-	if err != nil {
-		return nil, err
-	}
-
-	return store.List()
 }

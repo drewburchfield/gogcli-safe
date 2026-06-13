@@ -25,7 +25,7 @@ func setWatchTestConfigHome(t *testing.T) {
 
 func gmailWatchTestLayout(t *testing.T) config.Layout {
 	t.Helper()
-	layout, err := config.ResolveSystemLayoutFor("", config.PathKindConfig, config.PathKindState)
+	layout, err := config.NewSystemResolver("").Resolve(config.PathKindConfig, config.PathKindState)
 	if err != nil {
 		t.Fatalf("resolve watch layout: %v", err)
 	}

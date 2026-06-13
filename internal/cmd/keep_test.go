@@ -19,10 +19,7 @@ import (
 func writeKeepSA(t *testing.T) string {
 	t.Helper()
 
-	saPath, err := config.KeepServiceAccountPath("a@b.com")
-	if err != nil {
-		t.Fatalf("KeepServiceAccountPath: %v", err)
-	}
+	saPath := defaultLayoutForTest(t, config.PathKindData).KeepServiceAccountPath("a@b.com")
 	if mkdirErr := os.MkdirAll(filepath.Dir(saPath), 0o700); mkdirErr != nil {
 		t.Fatalf("mkdir: %v", mkdirErr)
 	}
@@ -511,10 +508,7 @@ func TestGetKeepService_UsesLegacyPath(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
 
 	account := "a@b.com"
-	legacyPath, err := config.KeepServiceAccountLegacyPath(account)
-	if err != nil {
-		t.Fatalf("KeepServiceAccountLegacyPath: %v", err)
-	}
+	legacyPath := defaultLayoutForTest(t, config.PathKindConfig).KeepServiceAccountLegacyPath(account)
 	if mkdirErr := os.MkdirAll(filepath.Dir(legacyPath), 0o700); mkdirErr != nil {
 		t.Fatalf("mkdir: %v", mkdirErr)
 	}
@@ -528,7 +522,7 @@ func TestGetKeepService_UsesLegacyPath(t *testing.T) {
 		return &keepapi.Service{}, nil
 	})
 
-	_, err = getKeepService(ctx, &RootFlags{Account: account}, &KeepCmd{})
+	_, err := getKeepService(ctx, &RootFlags{Account: account}, &KeepCmd{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

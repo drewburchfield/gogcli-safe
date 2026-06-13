@@ -3,16 +3,13 @@ package secrets
 import (
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/99designs/keyring"
 
 	"github.com/steipete/gogcli/internal/config"
-	"github.com/steipete/gogcli/internal/termutil"
 )
 
 const (
@@ -56,10 +53,6 @@ const (
 	keyringBackendKeychain      = "keychain"
 )
 
-func systemOpenOptions(layout config.Layout, store *config.ConfigStore) OpenOptions {
-	return OpenOptionsFromLookup(layout, store, os.LookupEnv, runtime.GOOS, termutil.IsTerminal(os.Stdin))
-}
-
 func OpenOptionsFromLookup(
 	layout config.Layout,
 	store *config.ConfigStore,
@@ -90,24 +83,6 @@ func OpenOptionsFromLookup(
 		OpenTimeout: keyringOpenTimeout,
 		LockTimeout: parseKeyringLockTimeout(lockTimeoutRaw),
 	}
-}
-
-func ResolveKeyringBackendInfo() (KeyringBackendInfo, error) {
-	store, err := config.DefaultConfigStore()
-	if err != nil {
-		return KeyringBackendInfo{}, fmt.Errorf("resolve keyring backend: %w", err)
-	}
-
-	return ResolveKeyringBackendInfoWithOptions(systemOpenOptions(store.Layout(), store))
-}
-
-func ResolveKeyringBackendInfoFor(store *config.ConfigStore) (KeyringBackendInfo, error) {
-	layout := config.Layout{}
-	if store != nil {
-		layout = store.Layout()
-	}
-
-	return ResolveKeyringBackendInfoWithOptions(systemOpenOptions(layout, store))
 }
 
 func ResolveKeyringBackendInfoWithOptions(options OpenOptions) (KeyringBackendInfo, error) {
@@ -174,21 +149,8 @@ func fileKeyringPasswordFuncFrom(password string, passwordSet bool, isTTY bool) 
 	}
 }
 
-func fileKeyringPasswordFunc() keyring.PromptFunc {
-	password, passwordSet := os.LookupEnv(keyringPasswordEnv)
-	return fileKeyringPasswordFuncFrom(password, passwordSet, termutil.IsTerminal(os.Stdin))
-}
-
 func normalizeKeyringBackend(value string) string {
 	return strings.ToLower(strings.TrimSpace(value))
-}
-
-func keyringServiceName() string {
-	if serviceName := strings.TrimSpace(os.Getenv(keyringServiceNameEnv)); serviceName != "" {
-		return serviceName
-	}
-
-	return config.AppName
 }
 
 func serviceNameFor(options OpenOptions) string {
@@ -372,20 +334,6 @@ func openKeyringWithTimeoutFunc(
 	case <-time.After(timeout):
 		return nil, keyringTimeoutError("opening keyring", timeout, hint)
 	}
-}
-
-func OpenDefault() (Store, error) {
-	return openDefaultRepository()
-}
-
-func openDefaultRepository() (Repository, error) {
-	layout, err := config.ResolveSystemLayoutFor("", config.PathKindConfig, config.PathKindData)
-	if err != nil {
-		return nil, fmt.Errorf("resolve keyring layout: %w", err)
-	}
-	store := config.NewConfigStore(layout)
-
-	return Open(systemOpenOptions(layout, store))
 }
 
 func Open(options OpenOptions) (Repository, error) {

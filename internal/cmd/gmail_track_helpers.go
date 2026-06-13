@@ -19,7 +19,7 @@ func newTrackingConfigStore(ctx context.Context, secretStore *tracking.SecretSto
 	}
 	legacyConfigBase := ""
 	if !layout.ExplicitState {
-		legacyConfigBase, err = config.ResolveUserConfigBase()
+		legacyConfigBase, err = commandUserConfigBase(ctx)
 		if err != nil {
 			return nil, err
 		}
