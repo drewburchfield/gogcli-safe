@@ -306,35 +306,71 @@ func TestBuildParagraphStyleRequests(t *testing.T) {
 	}
 }
 
-func TestBuildCellReplaceRequests(t *testing.T) {
+func TestBuildCellPlanRequests(t *testing.T) {
 	// No delete, with text
-	reqs := buildCellReplaceRequests(10, 10, "hello", nil)
+	reqs := buildCellPlanRequests(docssed.TextPlan{TextEdits: []docssed.TextEdit{{
+		StartIndex: 10,
+		EndIndex:   10,
+		InsertText: "hello",
+	}}})
 	assert.Equal(t, 1, len(reqs)) // insert only
 	assert.NotNil(t, reqs[0].InsertText)
 
 	// With delete and text
-	reqs = buildCellReplaceRequests(10, 15, "hello", nil)
+	reqs = buildCellPlanRequests(docssed.TextPlan{TextEdits: []docssed.TextEdit{{
+		StartIndex: 10,
+		EndIndex:   15,
+		InsertText: "hello",
+	}}})
 	assert.Equal(t, 2, len(reqs)) // delete + insert
 	assert.NotNil(t, reqs[0].DeleteContentRange)
 	assert.NotNil(t, reqs[1].InsertText)
 
 	// With delete, text, and format
-	reqs = buildCellReplaceRequests(10, 15, "hello", []string{"bold"})
+	reqs = buildCellPlanRequests(docssed.TextPlan{
+		TextEdits: []docssed.TextEdit{{
+			StartIndex: 10,
+			EndIndex:   15,
+			InsertText: "hello",
+		}},
+		Formatting: []docssed.FormatIntent{{
+			StartIndex: 10,
+			EndIndex:   15,
+			Formats:    []string{"bold"},
+		}},
+	})
 	assert.Equal(t, 3, len(reqs)) // delete + insert + format
 
-	// Formatting ranges must use UTF-16 code units, not UTF-8 byte length.
-	reqs = buildCellReplaceRequests(10, 10, "A🐢", []string{"bold"})
+	// The adapter preserves planner-provided UTF-16 formatting ranges.
+	reqs = buildCellPlanRequests(docssed.TextPlan{
+		TextEdits: []docssed.TextEdit{{
+			StartIndex: 10,
+			EndIndex:   10,
+			InsertText: "A🐢",
+		}},
+		Formatting: []docssed.FormatIntent{{
+			StartIndex: 10,
+			EndIndex:   13,
+			Formats:    []string{"bold"},
+		}},
+	})
 	require.Len(t, reqs, 2)
 	require.NotNil(t, reqs[1].UpdateTextStyle)
 	assert.Equal(t, int64(10), reqs[1].UpdateTextStyle.Range.StartIndex)
 	assert.Equal(t, int64(13), reqs[1].UpdateTextStyle.Range.EndIndex)
 
 	// Empty text
-	reqs = buildCellReplaceRequests(10, 15, "", nil)
+	reqs = buildCellPlanRequests(docssed.TextPlan{TextEdits: []docssed.TextEdit{{
+		StartIndex: 10,
+		EndIndex:   15,
+	}}})
 	assert.Equal(t, 1, len(reqs)) // delete only
 
 	// No delete, no text
-	reqs = buildCellReplaceRequests(10, 10, "", nil)
+	reqs = buildCellPlanRequests(docssed.TextPlan{TextEdits: []docssed.TextEdit{{
+		StartIndex: 10,
+		EndIndex:   10,
+	}}})
 	assert.Equal(t, 0, len(reqs))
 }
 

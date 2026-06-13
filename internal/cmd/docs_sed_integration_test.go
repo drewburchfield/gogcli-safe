@@ -143,6 +143,171 @@ func TestRunAddressedSubstituteUsesUTF16AndSkipsTablePreview(t *testing.T) {
 	}
 }
 
+func TestRunTableCellReplaceUsesUTF16Ranges(t *testing.T) {
+	document := tableCellDocument([]*docs.TableCell{
+		indexedTableCell("😀 foo\n", 5, 12),
+	})
+	var captured []*docs.Request
+	server := mockDocsServerAdvanced(t, document, func(requests []*docs.Request) {
+		captured = append(captured, requests...)
+	})
+	defer server.Close()
+	service, err := docs.NewService(
+		context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(server.Client()),
+		option.WithEndpoint(server.URL+"/"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = (&DocsSedCmd{}).runTableCellReplace(
+		mockDocsContext(t, service),
+		sedTestUI(),
+		"",
+		document.DocumentId,
+		sedExpr{
+			cellRef:     &tableCellRef{tableIndex: 1, row: 1, col: 1},
+			pattern:     "foo",
+			replacement: "bar",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(captured) != 2 {
+		t.Fatalf("requests = %#v", captured)
+	}
+	deletion := captured[0].DeleteContentRange
+	insertion := captured[1].InsertText
+	if deletion == nil || deletion.Range.StartIndex != 8 || deletion.Range.EndIndex != 11 {
+		t.Fatalf("deletion = %#v", deletion)
+	}
+	if insertion == nil || insertion.Location.Index != 8 || insertion.Text != "bar" {
+		t.Fatalf("insertion = %#v", insertion)
+	}
+}
+
+func TestRunTableWildcardReplaceExpandsEachCellInReverseOrder(t *testing.T) {
+	document := tableCellDocument([]*docs.TableCell{
+		indexedTableCell("alpha\n", 10, 16),
+		indexedTableCell("beta\n", 30, 35),
+	})
+	var captured []*docs.Request
+	server := mockDocsServerAdvanced(t, document, func(requests []*docs.Request) {
+		captured = append(captured, requests...)
+	})
+	defer server.Close()
+	service, err := docs.NewService(
+		context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(server.Client()),
+		option.WithEndpoint(server.URL+"/"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = (&DocsSedCmd{}).runTableCellReplace(
+		mockDocsContext(t, service),
+		sedTestUI(),
+		"",
+		document.DocumentId,
+		sedExpr{
+			cellRef:     &tableCellRef{tableIndex: 1, row: 1, col: 0},
+			pattern:     `([a-z]+)`,
+			replacement: `[${0}]`,
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(captured) != 4 {
+		t.Fatalf("requests = %#v", captured)
+	}
+	wantStarts := []int64{30, 30, 10, 10}
+	wantTexts := map[int]string{1: "[beta]", 3: "[alpha]"}
+	for index, request := range captured {
+		switch {
+		case request.DeleteContentRange != nil:
+			if request.DeleteContentRange.Range.StartIndex != wantStarts[index] {
+				t.Fatalf("request %d deletion = %#v", index, request.DeleteContentRange)
+			}
+		case request.InsertText != nil:
+			if request.InsertText.Location.Index != wantStarts[index] ||
+				request.InsertText.Text != wantTexts[index] {
+				t.Fatalf("request %d insertion = %#v", index, request.InsertText)
+			}
+		default:
+			t.Fatalf("request %d = %#v", index, request)
+		}
+	}
+}
+
+func TestProcessCellExprsRefetchesBeforeRepeatedCell(t *testing.T) {
+	document := tableCellDocument([]*docs.TableCell{
+		indexedTableCell("old\n", 10, 14),
+	})
+	batchCalls := 0
+	server := mockDocsServerAdvanced(t, document, func(_ []*docs.Request) {
+		batchCalls++
+	})
+	defer server.Close()
+	service, err := docs.NewService(
+		context.Background(),
+		option.WithoutAuthentication(),
+		option.WithHTTPClient(server.Client()),
+		option.WithEndpoint(server.URL+"/"),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ref := &tableCellRef{tableIndex: 1, row: 1, col: 1}
+	replaced, err := (&DocsSedCmd{}).processCellExprs(
+		mockDocsContext(t, service),
+		sedTestUI(),
+		"",
+		document.DocumentId,
+		[]indexedExpr{
+			{index: 0, expr: sedExpr{cellRef: ref, replacement: "first"}},
+			{index: 1, expr: sedExpr{cellRef: ref, replacement: "second"}},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replaced != 2 || batchCalls != 2 {
+		t.Fatalf("replaced = %d, batch calls = %d", replaced, batchCalls)
+	}
+}
+
+func tableCellDocument(cells []*docs.TableCell) *docs.Document {
+	return &docs.Document{
+		DocumentId: "test-doc-id",
+		Body: &docs.Body{Content: []*docs.StructuralElement{{
+			StartIndex: 1,
+			EndIndex:   40,
+			Table: &docs.Table{TableRows: []*docs.TableRow{{
+				TableCells: cells,
+			}}},
+		}}},
+	}
+}
+
+func indexedTableCell(text string, start, end int64) *docs.TableCell {
+	return &docs.TableCell{Content: []*docs.StructuralElement{{
+		StartIndex: start,
+		EndIndex:   end,
+		Paragraph: &docs.Paragraph{Elements: []*docs.ParagraphElement{{
+			StartIndex: start,
+			EndIndex:   end,
+			TextRun:    &docs.TextRun{Content: text},
+		}}},
+	}}}
+}
+
 func TestRunAddressedMutationsUsePlannedRanges(t *testing.T) {
 	document := &docs.Document{
 		DocumentId: "test-doc-id",

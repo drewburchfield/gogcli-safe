@@ -103,32 +103,6 @@ func buildImageSizeSpec(spec *docssed.ImageSpec) *docs.Size {
 	return size
 }
 
-// buildCellReplaceRequests builds delete+insert+format requests for replacing table cell content.
-// If deleteEnd > startIdx, deletes old content. Inserts plainText at startIdx and applies formats.
-func buildCellReplaceRequests(startIdx, deleteEnd int64, plainText string, formats []string) []*docs.Request {
-	var requests []*docs.Request
-	if startIdx < deleteEnd {
-		requests = append(requests, &docs.Request{
-			DeleteContentRange: &docs.DeleteContentRangeRequest{
-				Range: &docs.Range{StartIndex: startIdx, EndIndex: deleteEnd},
-			},
-		})
-	}
-	if plainText != "" {
-		requests = append(requests, &docs.Request{
-			InsertText: &docs.InsertTextRequest{
-				Location: &docs.Location{Index: startIdx},
-				Text:     plainText,
-			},
-		})
-		if len(formats) > 0 {
-			end := startIdx + utf16Len(plainText)
-			requests = append(requests, buildTextStyleRequests(formats, startIdx, end)...)
-		}
-	}
-	return requests
-}
-
 // sedOutputKV is an ordered key-value pair for sedOutputOK.
 type sedOutputKV struct {
 	Key   string

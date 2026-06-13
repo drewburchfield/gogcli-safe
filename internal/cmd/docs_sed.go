@@ -605,8 +605,17 @@ func (c *DocsSedCmd) processCellExprs(ctx context.Context, u *ui.UI, account, id
 		if canBatchCell(ie) {
 			tableIdx := ie.expr.cellRef.tableIndex
 			batch := []indexedExpr{ie}
+			seenCells := map[[2]int]struct{}{{
+				ie.expr.cellRef.row,
+				ie.expr.cellRef.col,
+			}: {}}
 			j := i + 1
 			for j < len(cellExprs) && canBatchCell(cellExprs[j]) && cellExprs[j].expr.cellRef.tableIndex == tableIdx {
+				cell := [2]int{cellExprs[j].expr.cellRef.row, cellExprs[j].expr.cellRef.col}
+				if _, duplicate := seenCells[cell]; duplicate {
+					break
+				}
+				seenCells[cell] = struct{}{}
 				batch = append(batch, cellExprs[j])
 				j++
 			}
