@@ -9,6 +9,7 @@ import (
 	"google.golang.org/api/docs/v1"
 	"google.golang.org/api/drive/v3"
 
+	"github.com/steipete/gogcli/internal/docsedit"
 	"github.com/steipete/gogcli/internal/docsmarkdown"
 	"github.com/steipete/gogcli/internal/outfmt"
 	"github.com/steipete/gogcli/internal/ui"
@@ -123,7 +124,7 @@ func docsWriteOrphanTargetTabID(doc *docs.Document, tabQuery string, wholeDocume
 	return tab.TabProperties.TabId, nil
 }
 
-func docsWriteCommentTouchesTarget(matches []docsTextRangeMatch, targetTabID string, wholeDocument bool) bool {
+func docsWriteCommentTouchesTarget(matches []docsedit.TextRange, targetTabID string, wholeDocument bool) bool {
 	if wholeDocument {
 		return len(matches) > 0
 	}

@@ -1293,24 +1293,33 @@ func (c *DocsFindReplaceCmd) Run(ctx context.Context, flags *RootFlags) error {
 	targetDoc := loaded.target
 
 	if c.First {
-		startIdx, endIdx, total := findTextInDoc(targetDoc, c.Find, c.MatchCase)
-		if total == 0 {
+		matches := docsedit.FindTextRanges(targetDoc, c.Find, docsedit.SearchOptions{
+			MatchCase:            c.MatchCase,
+			PreserveHTMLEntities: true,
+			RequireTextSegment:   true,
+		})
+		if len(matches) == 0 {
 			return c.printFirstResult(ctx, u, docID, replaceText, 0, 0)
 		}
+		match := matches[0]
 		if format == docsContentFormatMarkdown {
-			err = c.runMarkdown(ctx, svc, doc, startIdx, endIdx, replaceText)
+			err = c.runMarkdown(ctx, svc, doc, match.StartIndex, match.EndIndex, replaceText)
 		} else {
-			err = c.runPlain(ctx, svc, doc, startIdx, endIdx, replaceText)
+			err = c.runPlain(ctx, svc, doc, match.StartIndex, match.EndIndex, replaceText)
 		}
 		if err != nil {
 			return err
 		}
-		return c.printFirstResult(ctx, u, docID, replaceText, 1, total)
+		return c.printFirstResult(ctx, u, docID, replaceText, 1, len(matches))
 	}
 
-	matches := findTextMatches(targetDoc, c.Find, c.MatchCase)
+	matches := docsedit.FindTextRanges(targetDoc, c.Find, docsedit.SearchOptions{
+		MatchCase:            c.MatchCase,
+		PreserveHTMLEntities: true,
+		RequireTextSegment:   true,
+	})
 	for i := len(matches) - 1; i >= 0; i-- {
-		if err = c.runMarkdown(ctx, svc, doc, matches[i].startIndex, matches[i].endIndex, replaceText); err != nil {
+		if err = c.runMarkdown(ctx, svc, doc, matches[i].StartIndex, matches[i].EndIndex, replaceText); err != nil {
 			return err
 		}
 		if i == 0 {
@@ -1353,7 +1362,11 @@ func (c *DocsFindReplaceCmd) runDryRun(ctx context.Context, u *ui.UI, svc *docs.
 	}
 	c.Tab = loaded.tabID
 
-	matches := findTextMatches(loaded.target, c.Find, c.MatchCase)
+	matches := docsedit.FindTextRanges(loaded.target, c.Find, docsedit.SearchOptions{
+		MatchCase:            c.MatchCase,
+		PreserveHTMLEntities: true,
+		RequireTextSegment:   true,
+	})
 	replacements := len(matches)
 	if c.First && replacements > 1 {
 		replacements = 1
