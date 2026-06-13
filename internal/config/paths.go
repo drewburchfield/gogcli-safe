@@ -3,30 +3,14 @@ package config
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 )
 
 const AppName = "gogcli"
-
-var (
-	errPathMustBeAbsolute = errors.New("path must be absolute")
-	errUnknownPathKind    = errors.New("unknown path kind")
-)
-
-type PathKind int
-
-const (
-	PathKindConfig PathKind = iota
-	PathKindData
-	PathKindState
-	PathKindCache
-)
 
 var homeOverride string
 
@@ -49,212 +33,31 @@ func SetHomeOverride(path string) (func(), error) {
 }
 
 func Dir() (string, error) {
-	return kindDir(PathKindConfig)
+	return currentLayoutDir(PathKindConfig)
 }
 
 func HasExplicitConfigOverride() bool {
-	return strings.TrimSpace(homeOverride) != "" ||
-		strings.TrimSpace(os.Getenv("GOG_HOME")) != "" ||
-		strings.TrimSpace(os.Getenv("GOG_CONFIG_DIR")) != ""
+	return currentLayoutEnv().hasExplicit(PathKindConfig)
 }
 
 func HasExplicitStateOverride() bool {
-	return strings.TrimSpace(homeOverride) != "" ||
-		strings.TrimSpace(os.Getenv("GOG_HOME")) != "" ||
-		strings.TrimSpace(os.Getenv("GOG_STATE_DIR")) != ""
+	return currentLayoutEnv().hasExplicit(PathKindState)
 }
 
 func HasExplicitDataOverride() bool {
-	return strings.TrimSpace(homeOverride) != "" ||
-		strings.TrimSpace(os.Getenv("GOG_HOME")) != "" ||
-		strings.TrimSpace(os.Getenv("GOG_DATA_DIR")) != ""
+	return currentLayoutEnv().hasExplicit(PathKindData)
 }
 
 func DataDir() (string, error) {
-	return kindDir(PathKindData)
+	return currentLayoutDir(PathKindData)
 }
 
 func StateDir() (string, error) {
-	return kindDir(PathKindState)
+	return currentLayoutDir(PathKindState)
 }
 
 func CacheDir() (string, error) {
-	return kindDir(PathKindCache)
-}
-
-func kindDir(kind PathKind) (string, error) {
-	if override, ok, err := gogKindOverride(kind); ok || err != nil {
-		return override, err
-	}
-	if home, ok, err := gogHomeOverride(); ok || err != nil {
-		return filepath.Join(home, kindName(kind)), err
-	}
-	if xdg, ok := absoluteEnv(xdgEnvVar(kind)); ok {
-		return filepath.Join(xdg, AppName), nil
-	}
-	base, err := xdgDefaultBase(kind)
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(base, AppName), nil
-}
-
-func gogKindOverride(kind PathKind) (string, bool, error) {
-	env := gogKindEnvVar(kind)
-	if env == "" {
-		return "", false, nil
-	}
-	raw := strings.TrimSpace(os.Getenv(env))
-	if raw == "" {
-		return "", false, nil
-	}
-	expanded, err := ExpandPath(raw)
-	if err != nil {
-		return "", true, err
-	}
-	if !filepath.IsAbs(expanded) {
-		return "", true, fmt.Errorf("%w: %s=%s", errPathMustBeAbsolute, env, raw)
-	}
-	return expanded, true, nil
-}
-
-func gogHomeOverride() (string, bool, error) {
-	raw := strings.TrimSpace(homeOverride)
-	if raw == "" {
-		raw = strings.TrimSpace(os.Getenv("GOG_HOME"))
-	}
-	if raw == "" {
-		return "", false, nil
-	}
-	expanded, err := ExpandPath(raw)
-	if err != nil {
-		return "", true, err
-	}
-	if !filepath.IsAbs(expanded) {
-		return "", true, fmt.Errorf("%w: GOG_HOME=%s", errPathMustBeAbsolute, raw)
-	}
-	return expanded, true, nil
-}
-
-func absoluteEnv(name string) (string, bool) {
-	value := strings.TrimSpace(os.Getenv(name))
-	if value == "" || !filepath.IsAbs(value) {
-		return "", false
-	}
-	return value, true
-}
-
-func hasAbsoluteEnv(name string) bool {
-	_, ok := absoluteEnv(name)
-	return ok
-}
-
-func xdgEnvVar(kind PathKind) string {
-	switch kind {
-	case PathKindConfig:
-		return "XDG_CONFIG_HOME"
-	case PathKindData:
-		return "XDG_DATA_HOME"
-	case PathKindState:
-		return "XDG_STATE_HOME"
-	case PathKindCache:
-		return "XDG_CACHE_HOME"
-	default:
-		return ""
-	}
-}
-
-func gogKindEnvVar(kind PathKind) string {
-	switch kind {
-	case PathKindConfig:
-		return "GOG_CONFIG_DIR"
-	case PathKindData:
-		return "GOG_DATA_DIR"
-	case PathKindState:
-		return "GOG_STATE_DIR"
-	case PathKindCache:
-		return "GOG_CACHE_DIR"
-	default:
-		return ""
-	}
-}
-
-func kindName(kind PathKind) string {
-	switch kind {
-	case PathKindConfig:
-		return "config"
-	case PathKindData:
-		return "data"
-	case PathKindState:
-		return "state"
-	case PathKindCache:
-		return "cache"
-	default:
-		return ""
-	}
-}
-
-func xdgDefaultBase(kind PathKind) (string, error) {
-	switch kind {
-	case PathKindConfig:
-		return configDefaultBase()
-	case PathKindCache:
-		return cacheDefaultBase()
-	case PathKindData:
-		if usesXDGDefaults() {
-			return homeJoin(".local", "share")
-		}
-		return configDefaultBase()
-	case PathKindState:
-		if usesXDGDefaults() {
-			return homeJoin(".local", "state")
-		}
-		return configDefaultBase()
-	default:
-		return "", fmt.Errorf("%w: %d", errUnknownPathKind, kind)
-	}
-}
-
-func configDefaultBase() (string, error) {
-	if xdg, ok := absoluteEnv("XDG_CONFIG_HOME"); ok {
-		return xdg, nil
-	}
-	if strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")) != "" && usesXDGDefaults() {
-		return homeJoin(".config")
-	}
-	base, err := os.UserConfigDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve user config dir: %w", err)
-	}
-	return base, nil
-}
-
-func cacheDefaultBase() (string, error) {
-	if strings.TrimSpace(os.Getenv("XDG_CACHE_HOME")) != "" && usesXDGDefaults() {
-		return homeJoin(".cache")
-	}
-	base, err := os.UserCacheDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve user cache dir: %w", err)
-	}
-	return base, nil
-}
-
-func usesXDGDefaults() bool {
-	switch runtime.GOOS {
-	case "linux", "freebsd", "openbsd", "netbsd", "dragonfly":
-		return true
-	default:
-		return false
-	}
-}
-
-func homeJoin(parts ...string) (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("resolve user home dir: %w", err)
-	}
-	return filepath.Join(append([]string{home}, parts...)...), nil
+	return currentLayoutDir(PathKindCache)
 }
 
 func EnsureDir() (string, error) {
