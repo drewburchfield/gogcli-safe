@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/api/docs/v1"
 
+	"github.com/steipete/gogcli/internal/docssed"
 	"github.com/steipete/gogcli/internal/ui"
 )
 
@@ -25,15 +26,15 @@ type DocsSedCmd struct {
 
 // parseExpressionLines splits data into trimmed non-empty, non-comment lines.
 func parseExpressionLines(data []byte) []string {
-	var exprs []string
+	var expressions []string
 	for _, line := range strings.Split(string(data), "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		exprs = append(exprs, line)
+		expressions = append(expressions, line)
 	}
-	return exprs
+	return expressions
 }
 
 // collectExpressions gathers sed expressions from positional arg, -e flags, -f file, and stdin.
@@ -73,13 +74,7 @@ func (c *DocsSedCmd) collectExpressions(ctx context.Context) ([]string, error) {
 	return exprs, nil
 }
 
-// sedAddress represents a paragraph-number address prefix on a sed expression.
-// Addresses target specific paragraphs by number (1-based), or $ for last.
-type sedAddress struct {
-	Start    int  // 1-based paragraph number, -1 = last ($)
-	End      int  // 0 = same as Start (single paragraph), -1 = last ($)
-	HasRange bool // true if comma-separated range was given
-}
+type sedAddress = docssed.Address
 
 type sedExpr struct {
 	pattern     string
