@@ -82,6 +82,67 @@ func TestNormalizedRuntimeRequiresKeyringOptions(t *testing.T) {
 	}
 }
 
+func TestNormalizedInjectedRuntimeDoesNotFillServices(t *testing.T) {
+	t.Parallel()
+
+	runtime := normalizedRuntime(&app.Runtime{})
+	if runtime.Services.Drive != nil || runtime.Services.Gmail != nil || runtime.Services.Zoom != nil {
+		t.Fatalf("injected runtime services were completed: %#v", runtime.Services)
+	}
+}
+
+func TestComposeRuntimeGoogleServicesPreservesOverrides(t *testing.T) {
+	t.Parallel()
+
+	wantDrive := &drive.Service{}
+	runtime := &app.Runtime{
+		ServicesManaged: true,
+		Services: app.Services{
+			Drive: func(context.Context, string) (*drive.Service, error) {
+				return wantDrive, nil
+			},
+		},
+	}
+	factory := googleapi.NewFactory(googleapi.AuthDependencies{}, googleapi.FactoryOptions{})
+
+	composeRuntimeGoogleServices(runtime, factory)
+
+	gotDrive, err := runtime.Services.Drive(context.Background(), "user@example.com")
+	if err != nil || gotDrive != wantDrive {
+		t.Fatalf("Drive override = (%p, %v), want %p", gotDrive, err, wantDrive)
+	}
+	if runtime.Services.Gmail == nil ||
+		runtime.Services.Docs == nil ||
+		runtime.Services.Calendar == nil ||
+		runtime.Services.Photos == nil ||
+		runtime.Services.YouTubeWrite == nil {
+		t.Fatalf("representative factory services missing: %#v", runtime.Services)
+	}
+}
+
+func TestComposeRuntimeGoogleServicesSkipsInjectedRuntime(t *testing.T) {
+	t.Parallel()
+
+	runtime := &app.Runtime{}
+	composeRuntimeGoogleServices(runtime, googleapi.NewFactory(googleapi.AuthDependencies{}, googleapi.FactoryOptions{}))
+	if runtime.Services.Drive != nil {
+		t.Fatal("injected runtime received a production Drive service")
+	}
+}
+
+func TestDriveServiceMissingRuntimeServiceFailsClosed(t *testing.T) {
+	t.Parallel()
+
+	ctx := app.WithRuntime(context.Background(), &app.Runtime{})
+	_, err := driveService(ctx, "user@example.com")
+	if !errors.Is(err, errRuntimeServiceRequired) {
+		t.Fatalf("driveService() error = %v, want %v", err, errRuntimeServiceRequired)
+	}
+	if !strings.Contains(err.Error(), "drive") {
+		t.Fatalf("driveService() error = %v, want service name", err)
+	}
+}
+
 func TestResolveKeyringBackendInfoUsesRuntimeOptions(t *testing.T) {
 	t.Setenv("GOG_KEYRING_BACKEND", "keychain")
 

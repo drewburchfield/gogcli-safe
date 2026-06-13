@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -27,14 +26,6 @@ var (
 	errPhotosPickerRepeatedPageToken    = errors.New("repeated page token from Photos Picker")
 	errPhotosPickerPollingConfigMissing = errors.New("response is missing Photos Picker pollingConfig")
 )
-
-func newPhotosPickerClient(ctx context.Context, email string) (*googleapi.PhotosPickerClient, error) {
-	return googleapi.NewPhotosPickerClientForAccount(
-		ctx,
-		email,
-		googleapi.WithPhotosPickerBaseURL(os.Getenv("GOG_PHOTOS_PICKER_BASE_URL")),
-	)
-}
 
 func openPhotosPickerBrowser(ctx context.Context, uri string) error {
 	var command *exec.Cmd

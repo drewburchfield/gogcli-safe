@@ -21,8 +21,6 @@ import (
 	"github.com/steipete/gogcli/internal/authclient"
 	"github.com/steipete/gogcli/internal/config"
 	"github.com/steipete/gogcli/internal/filelock"
-	"github.com/steipete/gogcli/internal/googleapi"
-	"github.com/steipete/gogcli/internal/googleauth"
 )
 
 const (
@@ -32,11 +30,8 @@ const (
 )
 
 var (
-	docsBatchNow           = time.Now
-	docsBatchBaseURL       = docsBatchBaseURLDefault
-	newDocsBatchHTTPClient = func(ctx context.Context, account string) (*http.Client, error) {
-		return googleapi.NewHTTPClient(ctx, googleauth.ServiceDocs, account)
-	}
+	docsBatchNow     = time.Now
+	docsBatchBaseURL = docsBatchBaseURLDefault
 )
 
 type docsBatchRequestEntry struct {
@@ -400,7 +395,7 @@ func docsBatchWirePayload(state *docsBatchState, entries []docsBatchRequestEntry
 
 func submitDocsBatch(ctx context.Context, state *docsBatchState, entries []docsBatchRequestEntry) (*docs.BatchUpdateDocumentResponse, error) {
 	ctx = authclient.WithClient(ctx, state.Client)
-	client, err := newDocsBatchHTTPClient(ctx, state.Account)
+	client, err := docsHTTPClient(ctx, state.Account)
 	if err != nil {
 		return nil, err
 	}

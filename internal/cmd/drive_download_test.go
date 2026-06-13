@@ -38,7 +38,8 @@ func TestDownloadDriveFile_NonGoogleDoc(t *testing.T) {
 
 	tmp := t.TempDir()
 	dest := filepath.Join(tmp, "file.bin")
-	outPath, n, err := downloadDriveFile(context.Background(), svc, &drive.File{Id: "id1", MimeType: "application/pdf"}, dest, "")
+	ctx := withDriveTestOperations(context.Background(), svc, driveDownload, driveExportDownload)
+	outPath, n, err := downloadDriveFile(ctx, svc, &drive.File{Id: "id1", MimeType: "application/pdf"}, dest, "")
 	if err != nil {
 		t.Fatalf("downloadDriveFile: %v", err)
 	}
@@ -109,7 +110,8 @@ func TestDownloadDriveFile_GoogleDocExport(t *testing.T) {
 
 	tmp := t.TempDir()
 	dest := filepath.Join(tmp, "doc.txt")
-	outPath, n, err := downloadDriveFile(context.Background(), svc, &drive.File{Id: "id1", MimeType: "application/vnd.google-apps.document"}, dest, "")
+	ctx := withDriveTestOperations(context.Background(), svc, driveDownload, driveExportDownload)
+	outPath, n, err := downloadDriveFile(ctx, svc, &drive.File{Id: "id1", MimeType: "application/vnd.google-apps.document"}, dest, "")
 	if err != nil {
 		t.Fatalf("downloadDriveFile: %v", err)
 	}

@@ -122,7 +122,7 @@ func TestBatchEndAtomicSubmitsExactPayloadAndDeletesState(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"documentId":"doc1","writeControl":{"requiredRevisionId":"rev2"}}`)
 	}))
 	defer server.Close()
-	restoreDocsBatchHTTPTest(t, server)
+	ctx = withDocsBatchHTTPTest(t, ctx, server)
 
 	if err := (&BatchEndCmd{BatchID: state.BatchID}).Run(ctx, &RootFlags{}); err != nil {
 		t.Fatalf("end: %v", err)
@@ -161,7 +161,7 @@ func TestBatchEndAutoSplitChainsRevision(t *testing.T) {
 		_, _ = fmt.Fprintf(w, `{"documentId":"doc1","writeControl":{"requiredRevisionId":%q}}`, next)
 	}))
 	defer server.Close()
-	restoreDocsBatchHTTPTest(t, server)
+	ctx = withDocsBatchHTTPTest(t, ctx, server)
 
 	if err := (&BatchEndCmd{BatchID: state.BatchID, AutoSplit: true}).Run(ctx, &RootFlags{}); err != nil {
 		t.Fatalf("end split: %v", err)
@@ -193,7 +193,7 @@ func TestBatchEndContinueOnErrorRetainsFailedRequests(t *testing.T) {
 		_, _ = fmt.Fprint(w, `{"documentId":"doc1","writeControl":{"requiredRevisionId":"rev2"}}`)
 	}))
 	defer server.Close()
-	restoreDocsBatchHTTPTest(t, server)
+	ctx = withDocsBatchHTTPTest(t, ctx, server)
 
 	if err := (&BatchEndCmd{BatchID: state.BatchID, ContinueOnError: true}).Run(ctx, &RootFlags{}); err != nil {
 		t.Fatalf("end continue: %v", err)
@@ -212,12 +212,10 @@ func TestBatchEndContinueOnErrorRetainsFailedRequests(t *testing.T) {
 
 func TestBatchEndDryRunKeepsStateWithoutHTTP(t *testing.T) {
 	store, state, ctx := prepareDocsBatchEndTest(t, 1)
-	oldClient := newDocsBatchHTTPClient
-	newDocsBatchHTTPClient = func(context.Context, string) (*http.Client, error) {
+	ctx = withDocsTestHTTPClientFactory(ctx, func(context.Context, string) (*http.Client, error) {
 		t.Fatal("dry run created HTTP client")
 		return nil, errors.New("unexpected HTTP client request")
-	}
-	t.Cleanup(func() { newDocsBatchHTTPClient = oldClient })
+	})
 
 	if err := (&BatchEndCmd{BatchID: state.BatchID}).Run(ctx, &RootFlags{DryRun: true}); err != nil {
 		t.Fatalf("dry-run end: %v", err)
@@ -393,17 +391,15 @@ func prepareDocsBatchEndTest(t *testing.T, requestCount int) (*docsBatchStore, *
 	return store, state, ctx
 }
 
-func restoreDocsBatchHTTPTest(t *testing.T, server *httptest.Server) {
+func withDocsBatchHTTPTest(t *testing.T, ctx context.Context, server *httptest.Server) context.Context {
 	t.Helper()
 	oldBaseURL := docsBatchBaseURL
-	oldClient := newDocsBatchHTTPClient
 	docsBatchBaseURL = server.URL
-	newDocsBatchHTTPClient = func(context.Context, string) (*http.Client, error) {
-		return server.Client(), nil
-	}
 	t.Cleanup(func() {
 		docsBatchBaseURL = oldBaseURL
-		newDocsBatchHTTPClient = oldClient
+	})
+	return withDocsTestHTTPClientFactory(ctx, func(context.Context, string) (*http.Client, error) {
+		return server.Client(), nil
 	})
 }
 

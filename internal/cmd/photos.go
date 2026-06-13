@@ -17,10 +17,6 @@ import (
 	"github.com/steipete/gogcli/internal/ui"
 )
 
-func newPhotosClient(ctx context.Context, email string) (*googleapi.PhotosClient, error) {
-	return googleapi.NewPhotosClientForAccount(ctx, email, googleapi.WithPhotosBaseURL(os.Getenv("GOG_PHOTOS_BASE_URL")))
-}
-
 type PhotosCmd struct {
 	List     PhotosListCmd     `cmd:"" name:"list" aliases:"ls" help:"List app-created media items"`
 	Search   PhotosSearchCmd   `cmd:"" name:"search" aliases:"find" help:"Search app-created media items"`

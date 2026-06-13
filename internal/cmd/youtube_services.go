@@ -5,9 +5,7 @@ import (
 
 	youtube "google.golang.org/api/youtube/v3"
 
-	"github.com/steipete/gogcli/internal/app"
 	"github.com/steipete/gogcli/internal/config"
-	"github.com/steipete/gogcli/internal/googleapi"
 )
 
 func getYouTubeAPIKey(ctx context.Context) (string, error) {
@@ -27,29 +25,33 @@ func getYouTubeServiceWithAPIKey(ctx context.Context) (*youtube.Service, error) 
 	if err != nil {
 		return nil, err
 	}
-	if runtime, ok := app.FromContext(ctx); ok && runtime.Services.YouTubeAPIKey != nil {
-		return runtime.Services.YouTubeAPIKey(ctx, key)
+	runtime, serviceErr := runtimeWithService(ctx, "youtube API key")
+	if serviceErr != nil || runtime.Services.YouTubeAPIKey == nil {
+		return nil, serviceError(serviceErr, "youtube API key")
 	}
-	return googleapi.NewYouTubeWithAPIKey(ctx, key)
+	return runtime.Services.YouTubeAPIKey(ctx, key)
 }
 
 func getYouTubeServiceForAccount(ctx context.Context, account string) (*youtube.Service, error) {
-	if runtime, ok := app.FromContext(ctx); ok && runtime.Services.YouTubeAccount != nil {
-		return runtime.Services.YouTubeAccount(ctx, account)
+	runtime, err := runtimeWithService(ctx, "youtube account")
+	if err != nil || runtime.Services.YouTubeAccount == nil {
+		return nil, serviceError(err, "youtube account")
 	}
-	return googleapi.NewYouTubeForAccount(ctx, account)
+	return runtime.Services.YouTubeAccount(ctx, account)
 }
 
 func getYouTubeCommentsServiceForAccount(ctx context.Context, account string) (*youtube.Service, error) {
-	if runtime, ok := app.FromContext(ctx); ok && runtime.Services.YouTubeComments != nil {
-		return runtime.Services.YouTubeComments(ctx, account)
+	runtime, err := runtimeWithService(ctx, "youtube comments")
+	if err != nil || runtime.Services.YouTubeComments == nil {
+		return nil, serviceError(err, "youtube comments")
 	}
-	return googleapi.NewYouTubeCommentsForAccount(ctx, account)
+	return runtime.Services.YouTubeComments(ctx, account)
 }
 
 func getYouTubeWriteServiceForAccount(ctx context.Context, account string) (*youtube.Service, error) {
-	if runtime, ok := app.FromContext(ctx); ok && runtime.Services.YouTubeWrite != nil {
-		return runtime.Services.YouTubeWrite(ctx, account)
+	runtime, err := runtimeWithService(ctx, "youtube write")
+	if err != nil || runtime.Services.YouTubeWrite == nil {
+		return nil, serviceError(err, "youtube write")
 	}
-	return googleapi.NewYouTubeWriteForAccount(ctx, account)
+	return runtime.Services.YouTubeWrite(ctx, account)
 }

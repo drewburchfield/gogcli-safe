@@ -44,7 +44,7 @@ func TestGmailWatchServeCmd_UsesStoredHook(t *testing.T) {
 		return nil
 	}
 
-	ctx := newCmdRuntimeOutputContext(t, io.Discard, io.Discard)
+	ctx := withGmailTestService(newCmdRuntimeOutputContext(t, io.Discard, io.Discard), &gmail.Service{})
 	if execErr := runKong(t, &GmailWatchServeCmd{}, []string{"--port", "9999", "--path", "/hook"}, ctx, flags); execErr != nil {
 		t.Fatalf("execute: %v", execErr)
 	}
@@ -86,7 +86,7 @@ func TestGmailWatchServeCmd_DefaultMaxBytes(t *testing.T) {
 		return nil
 	}
 
-	ctx := newCmdRuntimeOutputContext(t, io.Discard, io.Discard)
+	ctx := withGmailTestService(newCmdRuntimeOutputContext(t, io.Discard, io.Discard), &gmail.Service{})
 	if execErr := runKong(t, &GmailWatchServeCmd{}, []string{"--port", "9999", "--path", "/hook", "--max-bytes", "0"}, ctx, flags); execErr != nil {
 		t.Fatalf("execute: %v", execErr)
 	}
@@ -131,7 +131,7 @@ func TestGmailWatchServeCmd_FetchDelaySeconds(t *testing.T) {
 		return nil
 	}
 
-	ctx := newCmdRuntimeOutputContext(t, io.Discard, io.Discard)
+	ctx := withGmailTestService(newCmdRuntimeOutputContext(t, io.Discard, io.Discard), &gmail.Service{})
 	if execErr := runKong(t, &GmailWatchServeCmd{}, []string{"--port", "9999", "--path", "/hook", "--fetch-delay", "5"}, ctx, flags); execErr != nil {
 		t.Fatalf("execute: %v", execErr)
 	}
@@ -167,7 +167,7 @@ func TestGmailWatchServeCmd_FetchDelayDuration(t *testing.T) {
 		return nil
 	}
 
-	ctx := newCmdRuntimeOutputContext(t, io.Discard, io.Discard)
+	ctx := withGmailTestService(newCmdRuntimeOutputContext(t, io.Discard, io.Discard), &gmail.Service{})
 	if execErr := runKong(t, &GmailWatchServeCmd{}, []string{"--port", "9999", "--path", "/hook", "--fetch-delay", "750ms"}, ctx, flags); execErr != nil {
 		t.Fatalf("execute: %v", execErr)
 	}
@@ -203,7 +203,7 @@ func TestGmailWatchServeCmd_ExcludeLabels_Disable(t *testing.T) {
 		return nil
 	}
 
-	ctx := newCmdRuntimeOutputContext(t, io.Discard, io.Discard)
+	ctx := withGmailTestService(newCmdRuntimeOutputContext(t, io.Discard, io.Discard), &gmail.Service{})
 	if execErr := runKong(t, &GmailWatchServeCmd{}, []string{"--port", "9999", "--path", "/hook", "--exclude-labels", ""}, ctx, flags); execErr != nil {
 		t.Fatalf("execute: %v", execErr)
 	}
@@ -246,7 +246,7 @@ func TestGmailWatchServeCmd_SaveHookAndOIDC(t *testing.T) {
 		return &idtoken.Validator{}, nil
 	}
 
-	ctx := newCmdRuntimeOutputContext(t, io.Discard, io.Discard)
+	ctx := withGmailTestService(newCmdRuntimeOutputContext(t, io.Discard, io.Discard), &gmail.Service{})
 	if execErr := runKong(t, &GmailWatchServeCmd{}, []string{
 		"--port", "9999",
 		"--path", "/hook",

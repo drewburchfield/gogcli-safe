@@ -75,7 +75,8 @@ func TestGmailWatchPullCmd_UsesStoredHookAndReceiver(t *testing.T) {
 		"--subscription", "projects/p/subscriptions/s",
 		"--fetch-delay", "0",
 	}
-	if execErr := runKong(t, &GmailWatchPullCmd{}, args, ui.WithUI(context.Background(), u), &RootFlags{Account: "a@b.com"}); execErr != nil {
+	ctx := withGmailTestService(ui.WithUI(context.Background(), u), &gmail.Service{})
+	if execErr := runKong(t, &GmailWatchPullCmd{}, args, ctx, &RootFlags{Account: "a@b.com"}); execErr != nil {
 		t.Fatalf("execute: %v", execErr)
 	}
 	if gotSubscription != "projects/p/subscriptions/s" {

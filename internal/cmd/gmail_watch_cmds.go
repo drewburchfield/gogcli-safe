@@ -345,7 +345,10 @@ func (c *GmailWatchServeCmd) Run(ctx context.Context, kctx *kong.Context, flags 
 	}
 
 	selectedClient := strings.TrimSpace(flags.Client)
-	gmailFactory := gmailServiceFactory(ctx)
+	gmailFactory, err := gmailServiceFactory(ctx)
+	if err != nil {
+		return err
+	}
 	serviceFactory := func(ctx context.Context, account string) (*gmail.Service, error) {
 		if selectedClient != "" {
 			ctx = authclient.WithClient(ctx, selectedClient)

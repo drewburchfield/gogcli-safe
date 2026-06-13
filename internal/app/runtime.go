@@ -147,6 +147,7 @@ type Runtime struct {
 	ServiceAccounts *config.ServiceAccountStore
 	KeyringOptions  *secrets.OpenOptions
 	ConfigManaged   bool
+	ServicesManaged bool
 }
 
 type runtimeContextKey struct{}

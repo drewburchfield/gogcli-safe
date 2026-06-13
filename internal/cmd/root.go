@@ -238,7 +238,7 @@ func executeWithRuntime(args []string, runtime *app.Runtime) (err error) {
 	resolveClient := func(email string, override string) (string, error) {
 		return resolveRuntimeClient(runtime, cli.Home, email, override)
 	}
-	ctx = googleapi.WithAuthDependencies(ctx, googleapi.AuthDependencies{
+	authDependencies := googleapi.AuthDependencies{
 		ResolveClient:             resolveClient,
 		ReadCredentials:           readCredentials,
 		OpenTokens:                openTokens,
@@ -247,7 +247,12 @@ func executeWithRuntime(args []string, runtime *app.Runtime) (err error) {
 		Mode:                      cli.authMode,
 		ADCTokenSource:            googleapi.DefaultADCTokenSource,
 		ServiceAccountTokenSource: googleapi.DefaultServiceAccountTokenSource,
-	})
+	}
+	ctx = googleapi.WithAuthDependencies(ctx, authDependencies)
+	composeRuntimeGoogleServices(runtime, googleapi.NewFactory(authDependencies, googleapi.FactoryOptions{
+		PhotosBaseURL:       os.Getenv("GOG_PHOTOS_BASE_URL"),
+		PhotosPickerBaseURL: os.Getenv("GOG_PHOTOS_PICKER_BASE_URL"),
+	}))
 	ctx = authclient.WithCredentialsReader(ctx, readCredentials)
 	ctx = authclient.WithSecretsStoreOpener(ctx, openTokens)
 	ctx = authclient.WithEmailReferenceUpdater(ctx, updateEmailReferences)
