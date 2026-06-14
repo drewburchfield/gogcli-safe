@@ -241,6 +241,30 @@ func TestMCPDocsWriteRejectsNeitherAppendNorReplace(t *testing.T) {
 	}
 }
 
+func TestMCPDocsGetRejectsTabWithAllTabs(t *testing.T) {
+	tool := findMCPTool(t, "docs_get")
+	_, err := tool.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{
+		Arguments: map[string]any{
+			"document_id": "doc1",
+			"tab":         "Overview",
+			"all_tabs":    true,
+		},
+	}})
+	if err == nil || !strings.Contains(err.Error(), "mutually exclusive") {
+		t.Fatalf("expected tab/all_tabs error, got %v", err)
+	}
+
+	_, err = tool.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{
+		Arguments: map[string]any{
+			"document_id": "doc1",
+			"tab":         "",
+		},
+	}})
+	if err == nil || !strings.Contains(err.Error(), "tab cannot be empty") {
+		t.Fatalf("expected empty tab error, got %v", err)
+	}
+}
+
 func TestMCPSheetsUpdateRejectsFileExpansion(t *testing.T) {
 	tool := findMCPTool(t, "sheets_update_range")
 	_, err := tool.BuildArgs(mcp.CallToolRequest{Params: mcp.CallToolParams{
