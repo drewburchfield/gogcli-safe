@@ -453,14 +453,9 @@ func TestGmailWatchServer_ResyncHistory_ListError(t *testing.T) {
 		t.Fatalf("NewService: %v", err)
 	}
 
-	server := &gmailWatchServer{
-		cfg:   gmailWatchServeConfig{ResyncMax: 10},
-		store: newEmptyGmailWatchTestStore(),
-		logf:  func(string, ...any) {},
-		warnf: func(string, ...any) {},
-	}
+	cfg := gmailWatchServeConfig{ResyncMax: 10}
 
-	if _, err := server.resyncHistory(context.Background(), newGmailWatchSource(gsvc, server.cfg, nil, server.logf), "200", ""); err == nil {
+	if _, err := newGmailWatchSource(gsvc, cfg, nil, nil).ListRecentMessageIDs(context.Background(), cfg.ResyncMax); err == nil {
 		t.Fatalf("expected resync error")
 	}
 }
@@ -491,14 +486,14 @@ func TestGmailWatchServer_ResyncHistory_FetchMessagesError(t *testing.T) {
 		t.Fatalf("NewService: %v", err)
 	}
 
-	server := &gmailWatchServer{
-		cfg:   gmailWatchServeConfig{ResyncMax: 10},
-		store: newEmptyGmailWatchTestStore(),
-		logf:  func(string, ...any) {},
-		warnf: func(string, ...any) {},
-	}
+	cfg := gmailWatchServeConfig{ResyncMax: 10}
 
-	if _, err := server.resyncHistory(context.Background(), newGmailWatchSource(gsvc, server.cfg, nil, server.logf), "200", ""); err == nil {
+	source := newGmailWatchSource(gsvc, cfg, nil, nil)
+	ids, err := source.ListRecentMessageIDs(context.Background(), cfg.ResyncMax)
+	if err != nil {
+		t.Fatalf("ListRecentMessageIDs: %v", err)
+	}
+	if _, err := source.FetchMessages(context.Background(), ids); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -534,15 +529,15 @@ func TestGmailWatchServer_ResyncHistory_UpdateError_InvalidHistoryID(t *testing.
 		t.Fatalf("NewService: %v", err)
 	}
 
-	server := &gmailWatchServer{
-		cfg:   gmailWatchServeConfig{Account: "a@b.com", ResyncMax: 10},
-		store: newMemoryGmailWatchTestStore(gmailWatchState{HistoryID: "100"}),
-		logf:  func(string, ...any) {},
-		warnf: func(string, ...any) {},
-	}
+	cfg := gmailWatchServeConfig{Account: "a@b.com", ResyncMax: 10}
 
-	if _, err := server.resyncHistory(context.Background(), newGmailWatchSource(gsvc, server.cfg, nil, server.logf), "bad", ""); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	source := newGmailWatchSource(gsvc, cfg, nil, nil)
+	ids, err := source.ListRecentMessageIDs(context.Background(), cfg.ResyncMax)
+	if err != nil {
+		t.Fatalf("ListRecentMessageIDs: %v", err)
+	}
+	if _, err := source.FetchMessages(context.Background(), ids); err != nil {
+		t.Fatalf("FetchMessages: %v", err)
 	}
 }
 

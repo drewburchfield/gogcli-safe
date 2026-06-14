@@ -21,28 +21,14 @@ import (
 	"github.com/steipete/gogcli/internal/gmailwatch"
 )
 
-var errNoNewMessages = errors.New("no new messages")
+var errNoNewMessages = gmailwatch.ErrNoNewMessages
 
 const (
 	gmailWatchStatusHTTPError = gmailwatch.DeliveryStatusHTTPError
 	gmailWatchStatusRateLimit = gmailwatch.DeliveryStatusRateLimit
 )
 
-type gmailWatchRateLimitError struct {
-	Until time.Time
-	Cause error
-}
-
-func (e *gmailWatchRateLimitError) Error() string {
-	if e.Until.IsZero() {
-		return "gmail watch rate limited"
-	}
-	return fmt.Sprintf("gmail watch rate limited until %s", e.Until.Format(time.RFC3339))
-}
-
-func (e *gmailWatchRateLimitError) Unwrap() error {
-	return e.Cause
-}
+type gmailWatchRateLimitError = gmailwatch.RateLimitError
 
 type gmailWatchServer struct {
 	cfg             gmailWatchServeConfig
@@ -169,166 +155,6 @@ func (s *gmailWatchServer) oidcAudience(r *http.Request) string {
 		}
 	}
 	return fmt.Sprintf("%s://%s%s", scheme, host, r.URL.Path)
-}
-
-func (s *gmailWatchServer) handlePush(ctx context.Context, payload gmailPushPayload) (*gmailHookPayload, error) {
-	store := s.store
-	if payload.MessageID != "" {
-		state := store.Get()
-		if state.LastPushMessageID == payload.MessageID {
-			s.logf("watch: ignoring duplicate push %s", payload.MessageID)
-			return nil, errNoNewMessages
-		}
-	}
-	if err := s.checkRateLimitCircuit(s.currentTime()); err != nil {
-		return nil, err
-	}
-	startID, err := store.StartHistoryID(payload.HistoryID)
-	if err != nil {
-		return nil, err
-	}
-	if startID == 0 {
-		if payload.HistoryID != "" {
-			state := store.Get()
-			stale, staleErr := isStaleHistoryID(state.HistoryID, payload.HistoryID)
-			if staleErr != nil {
-				s.warnf("watch: history id compare failed: %v", staleErr)
-			} else if stale {
-				s.logf("watch: ignoring stale push historyId=%s (stored=%s)", payload.HistoryID, state.HistoryID)
-			}
-		}
-		return nil, errNoNewMessages
-	}
-
-	err = s.sleepForFetch(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	svc, err := s.newService(ctx, s.cfg.Account)
-	if err != nil {
-		return nil, err
-	}
-
-	source := newGmailWatchSource(svc, s.cfg, s.excludeLabelIDs, s.logf)
-	historyPage, err := source.ListHistory(ctx, startID, s.cfg.HistoryMax, s.cfg.HistoryTypes)
-	if err != nil {
-		if isStaleHistoryError(err) {
-			return s.resyncHistory(ctx, source, payload.HistoryID, payload.MessageID)
-		}
-		return nil, s.openRateLimitCircuitIfNeeded(err)
-	}
-
-	nextHistoryID := payload.HistoryID
-	if historyPage.HistoryID != "" {
-		nextHistoryID = historyPage.HistoryID
-	}
-	if len(s.cfg.HistoryTypes) > 0 && len(historyPage.Records) == 0 {
-		if updateErr := store.AdvanceHistory(nextHistoryID, payload.MessageID, s.currentTime()); updateErr != nil {
-			s.warnf("watch: failed to update state: %v", updateErr)
-		}
-		return nil, errNoNewMessages
-	}
-
-	historyIDs := gmailwatch.CollectHistoryMessageIDs(historyPage.Records)
-	batch, err := source.FetchMessages(ctx, historyIDs.FetchIDs)
-	if err != nil {
-		return nil, s.openRateLimitCircuitIfNeeded(err)
-	}
-	if err := store.AdvanceHistory(nextHistoryID, payload.MessageID, s.currentTime()); err != nil {
-		s.warnf("watch: failed to update state: %v", err)
-	}
-
-	if batch.Excluded > 0 && len(batch.Messages) == 0 {
-		if s.cfg.VerboseOutput {
-			s.logf("watch: skipping hook; all messages excluded")
-		}
-		return nil, errNoNewMessages
-	}
-
-	return &gmailHookPayload{
-		Source:            "gmail",
-		Account:           s.cfg.Account,
-		HistoryID:         nextHistoryID,
-		Messages:          batch.Messages,
-		DeletedMessageIDs: historyIDs.DeletedIDs,
-	}, nil
-}
-
-func (s *gmailWatchServer) resyncHistory(ctx context.Context, source gmailwatch.Source, historyID string, messageID string) (*gmailHookPayload, error) {
-	ids, err := source.ListRecentMessageIDs(ctx, s.cfg.ResyncMax)
-	if err != nil {
-		return nil, s.openRateLimitCircuitIfNeeded(err)
-	}
-	batch, err := source.FetchMessages(ctx, ids)
-	if err != nil {
-		return nil, s.openRateLimitCircuitIfNeeded(err)
-	}
-
-	if err := s.store.AdvanceHistory(historyID, messageID, s.currentTime()); err != nil {
-		s.warnf("watch: failed to update state after resync: %v", err)
-	}
-
-	if batch.Excluded > 0 && len(batch.Messages) == 0 {
-		if s.cfg.VerboseOutput {
-			s.logf("watch: skipping hook; all messages excluded")
-		}
-		return nil, errNoNewMessages
-	}
-
-	return &gmailHookPayload{
-		Source:    "gmail",
-		Account:   s.cfg.Account,
-		HistoryID: historyID,
-		Messages:  batch.Messages,
-	}, nil
-}
-
-func (s *gmailWatchServer) sleepForFetch(ctx context.Context) error {
-	if s.cfg.FetchDelay <= 0 {
-		return nil
-	}
-	if s.sleep != nil {
-		return s.sleep(ctx, s.cfg.FetchDelay)
-	}
-	timer := time.NewTimer(s.cfg.FetchDelay)
-	defer timer.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-timer.C:
-		return nil
-	}
-}
-
-func (s *gmailWatchServer) checkRateLimitCircuit(now time.Time) error {
-	if s.store == nil {
-		return nil
-	}
-
-	until, open, err := s.store.CheckRateLimit(now)
-	if err != nil {
-		return err
-	}
-	if open {
-		return &gmailWatchRateLimitError{Until: until}
-	}
-
-	return nil
-}
-
-func (s *gmailWatchServer) openRateLimitCircuitIfNeeded(err error) error {
-	now := s.currentTime()
-	until, ok := gmailWatchRateLimitUntil(err, now)
-	if !ok {
-		return err
-	}
-	if s.store != nil {
-		if updateErr := s.store.OpenRateLimit(until, err.Error(), now); updateErr != nil {
-			s.warnf("watch: failed to update rate limit state: %v", updateErr)
-		}
-	}
-	return &gmailWatchRateLimitError{Until: until, Cause: err}
 }
 
 func (s *gmailWatchServer) sendHook(ctx context.Context, payload *gmailHookPayload) error {
