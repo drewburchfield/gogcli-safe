@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"time"
+
+	"github.com/steipete/gogcli/internal/gmailwatch"
 )
 
 const (
@@ -138,23 +140,4 @@ func (p *gmailPushPayload) UnmarshalJSON(data []byte) error {
 	return usage("historyId must be string or number")
 }
 
-type gmailHookMessage struct {
-	ID            string   `json:"id"`
-	ThreadID      string   `json:"threadId"`
-	From          string   `json:"from,omitempty"`
-	To            string   `json:"to,omitempty"`
-	Subject       string   `json:"subject,omitempty"`
-	Date          string   `json:"date,omitempty"`
-	Snippet       string   `json:"snippet,omitempty"`
-	Body          string   `json:"body,omitempty"`
-	BodyTruncated bool     `json:"bodyTruncated,omitempty"`
-	Labels        []string `json:"labels,omitempty"`
-}
-
-type gmailHookPayload struct {
-	Source            string             `json:"source"`
-	Account           string             `json:"account"`
-	HistoryID         string             `json:"historyId"`
-	Messages          []gmailHookMessage `json:"messages"`
-	DeletedMessageIDs []string           `json:"deletedMessageIds,omitempty"`
-}
+type gmailHookPayload = gmailwatch.Payload

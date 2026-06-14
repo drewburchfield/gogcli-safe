@@ -460,7 +460,7 @@ func TestGmailWatchServer_ResyncHistory_ListError(t *testing.T) {
 		warnf: func(string, ...any) {},
 	}
 
-	if _, err := server.resyncHistory(context.Background(), gsvc, "200", ""); err == nil {
+	if _, err := server.resyncHistory(context.Background(), newGmailWatchSource(gsvc, server.cfg, nil, server.logf), "200", ""); err == nil {
 		t.Fatalf("expected resync error")
 	}
 }
@@ -498,7 +498,7 @@ func TestGmailWatchServer_ResyncHistory_FetchMessagesError(t *testing.T) {
 		warnf: func(string, ...any) {},
 	}
 
-	if _, err := server.resyncHistory(context.Background(), gsvc, "200", ""); err == nil {
+	if _, err := server.resyncHistory(context.Background(), newGmailWatchSource(gsvc, server.cfg, nil, server.logf), "200", ""); err == nil {
 		t.Fatalf("expected error")
 	}
 }
@@ -541,7 +541,7 @@ func TestGmailWatchServer_ResyncHistory_UpdateError_InvalidHistoryID(t *testing.
 		warnf: func(string, ...any) {},
 	}
 
-	if _, err := server.resyncHistory(context.Background(), gsvc, "bad", ""); err != nil {
+	if _, err := server.resyncHistory(context.Background(), newGmailWatchSource(gsvc, server.cfg, nil, server.logf), "bad", ""); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

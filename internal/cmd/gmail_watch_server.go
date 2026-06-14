@@ -24,7 +24,6 @@ import (
 var errNoNewMessages = errors.New("no new messages")
 
 const (
-	gmailWatchFormatMetadata  = "metadata"
 	gmailWatchStatusHTTPError = gmailwatch.DeliveryStatusHTTPError
 	gmailWatchStatusRateLimit = gmailwatch.DeliveryStatusRateLimit
 )
@@ -211,31 +210,28 @@ func (s *gmailWatchServer) handlePush(ctx context.Context, payload gmailPushPayl
 		return nil, err
 	}
 
-	historyCall := svc.Users.History.List("me").StartHistoryId(startID).MaxResults(s.cfg.HistoryMax)
-	if len(s.cfg.HistoryTypes) > 0 {
-		historyCall.HistoryTypes(s.cfg.HistoryTypes...)
-	}
-	historyResp, err := historyCall.Context(ctx).Do()
+	source := newGmailWatchSource(svc, s.cfg, s.excludeLabelIDs, s.logf)
+	historyPage, err := source.ListHistory(ctx, startID, s.cfg.HistoryMax, s.cfg.HistoryTypes)
 	if err != nil {
 		if isStaleHistoryError(err) {
-			return s.resyncHistory(ctx, svc, payload.HistoryID, payload.MessageID)
+			return s.resyncHistory(ctx, source, payload.HistoryID, payload.MessageID)
 		}
 		return nil, s.openRateLimitCircuitIfNeeded(err)
 	}
 
 	nextHistoryID := payload.HistoryID
-	if historyResp != nil && historyResp.HistoryId != 0 {
-		nextHistoryID = formatHistoryID(historyResp.HistoryId)
+	if historyPage.HistoryID != "" {
+		nextHistoryID = historyPage.HistoryID
 	}
-	if len(s.cfg.HistoryTypes) > 0 && (historyResp == nil || len(historyResp.History) == 0) {
+	if len(s.cfg.HistoryTypes) > 0 && len(historyPage.Records) == 0 {
 		if updateErr := store.AdvanceHistory(nextHistoryID, payload.MessageID, s.currentTime()); updateErr != nil {
 			s.warnf("watch: failed to update state: %v", updateErr)
 		}
 		return nil, errNoNewMessages
 	}
 
-	historyIDs := collectHistoryMessageIDs(historyResp)
-	msgs, excluded, err := s.fetchMessages(ctx, svc, historyIDs.FetchIDs)
+	historyIDs := gmailwatch.CollectHistoryMessageIDs(historyPage.Records)
+	batch, err := source.FetchMessages(ctx, historyIDs.FetchIDs)
 	if err != nil {
 		return nil, s.openRateLimitCircuitIfNeeded(err)
 	}
@@ -243,7 +239,7 @@ func (s *gmailWatchServer) handlePush(ctx context.Context, payload gmailPushPayl
 		s.warnf("watch: failed to update state: %v", err)
 	}
 
-	if excluded > 0 && len(msgs) == 0 {
+	if batch.Excluded > 0 && len(batch.Messages) == 0 {
 		if s.cfg.VerboseOutput {
 			s.logf("watch: skipping hook; all messages excluded")
 		}
@@ -254,23 +250,17 @@ func (s *gmailWatchServer) handlePush(ctx context.Context, payload gmailPushPayl
 		Source:            "gmail",
 		Account:           s.cfg.Account,
 		HistoryID:         nextHistoryID,
-		Messages:          msgs,
+		Messages:          batch.Messages,
 		DeletedMessageIDs: historyIDs.DeletedIDs,
 	}, nil
 }
 
-func (s *gmailWatchServer) resyncHistory(ctx context.Context, svc *gmail.Service, historyID string, messageID string) (*gmailHookPayload, error) {
-	list, err := svc.Users.Messages.List("me").MaxResults(s.cfg.ResyncMax).Do()
+func (s *gmailWatchServer) resyncHistory(ctx context.Context, source gmailwatch.Source, historyID string, messageID string) (*gmailHookPayload, error) {
+	ids, err := source.ListRecentMessageIDs(ctx, s.cfg.ResyncMax)
 	if err != nil {
 		return nil, s.openRateLimitCircuitIfNeeded(err)
 	}
-	ids := make([]string, 0, len(list.Messages))
-	for _, m := range list.Messages {
-		if m != nil && m.Id != "" {
-			ids = append(ids, m.Id)
-		}
-	}
-	msgs, excluded, err := s.fetchMessages(ctx, svc, ids)
+	batch, err := source.FetchMessages(ctx, ids)
 	if err != nil {
 		return nil, s.openRateLimitCircuitIfNeeded(err)
 	}
@@ -279,7 +269,7 @@ func (s *gmailWatchServer) resyncHistory(ctx context.Context, svc *gmail.Service
 		s.warnf("watch: failed to update state after resync: %v", err)
 	}
 
-	if excluded > 0 && len(msgs) == 0 {
+	if batch.Excluded > 0 && len(batch.Messages) == 0 {
 		if s.cfg.VerboseOutput {
 			s.logf("watch: skipping hook; all messages excluded")
 		}
@@ -290,7 +280,7 @@ func (s *gmailWatchServer) resyncHistory(ctx context.Context, svc *gmail.Service
 		Source:    "gmail",
 		Account:   s.cfg.Account,
 		HistoryID: historyID,
-		Messages:  msgs,
+		Messages:  batch.Messages,
 	}, nil
 }
 
@@ -309,57 +299,6 @@ func (s *gmailWatchServer) sleepForFetch(ctx context.Context) error {
 	case <-timer.C:
 		return nil
 	}
-}
-
-func (s *gmailWatchServer) fetchMessages(ctx context.Context, svc *gmail.Service, ids []string) ([]gmailHookMessage, int, error) {
-	messages := make([]gmailHookMessage, 0, len(ids))
-	excluded := 0
-	format := gmailWatchFormatMetadata
-	if s.cfg.IncludeBody {
-		format = gmailFormatFull
-	}
-	for _, id := range ids {
-		if strings.TrimSpace(id) == "" {
-			continue
-		}
-		msg, err := svc.Users.Messages.Get("me", id).
-			Format(format).
-			MetadataHeaders(gmailBasicMetadataHeaders...).
-			Context(ctx).
-			Do()
-		if err != nil {
-			if isNotFoundAPIError(err) {
-				continue
-			}
-			return nil, excluded, err
-		}
-		if msg == nil {
-			continue
-		}
-		if s.isExcludedLabel(msg.LabelIds) {
-			excluded++
-			if s.cfg.VerboseOutput {
-				s.logf("watch: excluded message %s labels=%v", msg.Id, msg.LabelIds)
-			}
-			continue
-		}
-		item := gmailHookMessage{
-			ID:       msg.Id,
-			ThreadID: msg.ThreadId,
-			From:     headerValue(msg.Payload, "From"),
-			To:       headerValue(msg.Payload, "To"),
-			Subject:  headerValue(msg.Payload, "Subject"),
-			Date:     formatGmailDateInLocation(headerValue(msg.Payload, "Date"), s.cfg.DateLocation),
-			Snippet:  msg.Snippet,
-			Labels:   msg.LabelIds,
-		}
-		if s.cfg.IncludeBody {
-			body := bestBodyText(msg.Payload)
-			item.Body, item.BodyTruncated = truncateUTF8Bytes(body, s.cfg.MaxBodyBytes)
-		}
-		messages = append(messages, item)
-	}
-	return messages, excluded, nil
 }
 
 func (s *gmailWatchServer) checkRateLimitCircuit(now time.Time) error {
@@ -390,22 +329,6 @@ func (s *gmailWatchServer) openRateLimitCircuitIfNeeded(err error) error {
 		}
 	}
 	return &gmailWatchRateLimitError{Until: until, Cause: err}
-}
-
-func (s *gmailWatchServer) isExcludedLabel(labelIDs []string) bool {
-	if len(labelIDs) == 0 || len(s.excludeLabelIDs) == 0 {
-		return false
-	}
-	for _, id := range labelIDs {
-		trimmed := strings.TrimSpace(id)
-		if trimmed == "" {
-			continue
-		}
-		if _, ok := s.excludeLabelIDs[trimmed]; ok {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *gmailWatchServer) sendHook(ctx context.Context, payload *gmailHookPayload) error {
@@ -615,103 +538,4 @@ func retryAfterSeconds(now, until time.Time) string {
 		seconds = 1
 	}
 	return strconv.FormatInt(seconds, 10)
-}
-
-// historyMessageIDs holds the result of collecting message IDs from history.
-// FetchIDs contains messages that should be fetched (added, label changes, etc.).
-// DeletedIDs contains messages that were deleted and cannot be fetched.
-type historyMessageIDs struct {
-	FetchIDs   []string
-	DeletedIDs []string
-}
-
-func collectHistoryMessageIDs(resp *gmail.ListHistoryResponse) historyMessageIDs {
-	if resp == nil || len(resp.History) == 0 {
-		return historyMessageIDs{}
-	}
-	fetchIdx := make(map[string]int)
-	seenDeleted := make(map[string]struct{})
-	var result historyMessageIDs
-
-	addFetch := func(id string) {
-		if id == "" {
-			return
-		}
-		if _, ok := fetchIdx[id]; ok {
-			return
-		}
-		// If already marked as deleted, don't add to fetch list
-		if _, ok := seenDeleted[id]; ok {
-			return
-		}
-		fetchIdx[id] = len(result.FetchIDs)
-		result.FetchIDs = append(result.FetchIDs, id)
-	}
-
-	addDeleted := func(id string) {
-		if id == "" {
-			return
-		}
-		if _, ok := seenDeleted[id]; ok {
-			return
-		}
-		// Mark as removed from fetch list if previously added.
-		// A final compaction keeps stable order while avoiding O(n) delete per tombstone.
-		if i, ok := fetchIdx[id]; ok {
-			delete(fetchIdx, id)
-			result.FetchIDs[i] = ""
-		}
-		seenDeleted[id] = struct{}{}
-		result.DeletedIDs = append(result.DeletedIDs, id)
-	}
-
-	messageID := func(msg *gmail.Message) string {
-		if msg == nil {
-			return ""
-		}
-		return strings.TrimSpace(msg.Id)
-	}
-
-	for _, h := range resp.History {
-		if h == nil {
-			continue
-		}
-		for _, added := range h.MessagesAdded {
-			if added == nil {
-				continue
-			}
-			addFetch(messageID(added.Message))
-		}
-		for _, deleted := range h.MessagesDeleted {
-			if deleted == nil {
-				continue
-			}
-			addDeleted(messageID(deleted.Message))
-		}
-		for _, added := range h.LabelsAdded {
-			if added == nil {
-				continue
-			}
-			addFetch(messageID(added.Message))
-		}
-		for _, removed := range h.LabelsRemoved {
-			if removed == nil {
-				continue
-			}
-			addFetch(messageID(removed.Message))
-		}
-		for _, msg := range h.Messages {
-			addFetch(messageID(msg))
-		}
-	}
-	if len(fetchIdx) != len(result.FetchIDs) {
-		compacted := result.FetchIDs[:0]
-		for _, id := range result.FetchIDs {
-			if id != "" {
-				compacted = append(compacted, id)
-			}
-		}
-		result.FetchIDs = compacted
-	}
-	return result
 }
