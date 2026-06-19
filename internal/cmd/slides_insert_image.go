@@ -8,11 +8,9 @@ import (
 	_ "image/jpeg" // register JPEG decoder for aspect detection
 	_ "image/png"  // register PNG decoder for aspect detection
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
-	"google.golang.org/api/drive/v3"
 	"google.golang.org/api/slides/v1"
 
 	"github.com/steipete/gogcli/internal/outfmt"
@@ -112,40 +110,11 @@ func (c *SlidesInsertImageCmd) Run(ctx context.Context, flags *RootFlags) error 
 		return fmt.Errorf("slide %q not found in presentation", slideID)
 	}
 
-	imageURL := source.imageURL
-	if imageURL == "" {
-		driveSvc, driveErr := driveService(ctx, account)
-		if driveErr != nil {
-			return driveErr
-		}
-		imgFile, openErr := os.Open(source.localPath)
-		if openErr != nil {
-			return fmt.Errorf("open image: %w", openErr)
-		}
-		defer imgFile.Close()
-
-		driveFile, uploadErr := driveSvc.Files.Create(&drive.File{
-			Name:     filepath.Base(source.localPath),
-			MimeType: source.mimeType,
-		}).Media(imgFile).Fields("id, webContentLink").Context(ctx).Do()
-		if uploadErr != nil {
-			return fmt.Errorf("upload image to Drive: %w", uploadErr)
-		}
-		defer func() {
-			if delErr := driveSvc.Files.Delete(driveFile.Id).Context(context.WithoutCancel(ctx)).Do(); delErr != nil {
-				u.Err().Linef("Warning: failed to delete temporary Drive image %s; it may remain publicly readable until removed: %v", driveFile.Id, delErr)
-			}
-		}()
-
-		_, permissionErr := driveSvc.Permissions.Create(driveFile.Id, &drive.Permission{
-			Type: "anyone",
-			Role: "reader",
-		}).Context(ctx).Do()
-		if permissionErr != nil {
-			return fmt.Errorf("set image permissions: %w", permissionErr)
-		}
-		imageURL = driveImageDownloadURL(driveFile.Id)
+	imageURL, cleanup, err := prepareSlidesImageURL(ctx, account, source)
+	if err != nil {
+		return err
 	}
+	defer cleanup()
 
 	imageID := fmt.Sprintf("img_%d", time.Now().UnixNano())
 

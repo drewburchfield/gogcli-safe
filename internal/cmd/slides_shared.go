@@ -9,8 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"google.golang.org/api/drive/v3"
 	gapi "google.golang.org/api/googleapi"
 	"google.golang.org/api/slides/v1"
+
+	"github.com/steipete/gogcli/internal/ui"
 )
 
 const (
@@ -58,6 +61,45 @@ func resolveSlidesImageSource(localImage, imageURL string) (slidesImageSource, e
 		return slidesImageSource{}, usagef("unsupported image format %q (use PNG, JPG, or GIF)", ext)
 	}
 	return slidesImageSource{localPath: localImage, mimeType: mimeType}, nil
+}
+
+func prepareSlidesImageURL(ctx context.Context, account string, source slidesImageSource) (string, func(), error) {
+	if source.imageURL != "" {
+		return source.imageURL, func() {}, nil
+	}
+
+	driveSvc, err := driveService(ctx, account)
+	if err != nil {
+		return "", nil, err
+	}
+	imgFile, err := os.Open(source.localPath)
+	if err != nil {
+		return "", nil, fmt.Errorf("open image: %w", err)
+	}
+	defer imgFile.Close()
+
+	driveFile, err := driveSvc.Files.Create(&drive.File{
+		Name:     filepath.Base(source.localPath),
+		MimeType: source.mimeType,
+	}).Media(imgFile).Fields("id, webContentLink").Context(ctx).Do()
+	if err != nil {
+		return "", nil, fmt.Errorf("upload image to Drive: %w", err)
+	}
+
+	cleanup := func() {
+		if err := driveSvc.Files.Delete(driveFile.Id).Context(context.WithoutCancel(ctx)).Do(); err != nil {
+			ui.FromContext(ctx).Err().Linef("Warning: failed to delete temporary Drive image %s; it may remain publicly readable until removed: %v", driveFile.Id, err)
+		}
+	}
+	if _, err := driveSvc.Permissions.Create(driveFile.Id, &drive.Permission{
+		Type: "anyone",
+		Role: "reader",
+	}).Context(ctx).Do(); err != nil {
+		cleanup()
+		return "", nil, fmt.Errorf("set image permissions: %w", err)
+	}
+
+	return driveImageDownloadURL(driveFile.Id), cleanup, nil
 }
 
 func resolveSlidesNotesInput(notes *string, notesFile string) (string, bool, error) {

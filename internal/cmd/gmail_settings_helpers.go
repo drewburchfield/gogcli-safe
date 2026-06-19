@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"strings"
 
 	"google.golang.org/api/gmail/v1"
 
@@ -70,4 +71,48 @@ func normalizeGmailSettingsItems[T any](items []*T) []*T {
 		return []*T{}
 	}
 	return items
+}
+
+type gmailSettingsEmailDelete struct {
+	flagName    string
+	op          string
+	payloadKey  string
+	jsonKey     string
+	action      func(string) string
+	successText func(string) string
+	delete      func(*gmail.Service, string) error
+}
+
+func runGmailSettingsEmailDelete(ctx context.Context, flags *RootFlags, rawEmail string, operation gmailSettingsEmailDelete) error {
+	email := strings.TrimSpace(rawEmail)
+	if email == "" {
+		return usage("empty " + operation.flagName)
+	}
+	if err := validateGmailSettingsEmail(operation.flagName, email); err != nil {
+		return err
+	}
+
+	if err := dryRunAndConfirmDestructive(ctx, flags, operation.op, map[string]any{
+		operation.payloadKey: email,
+	}, operation.action(email)); err != nil {
+		return err
+	}
+
+	svc, err := loadGmailSettingsService(ctx, flags)
+	if err != nil {
+		return err
+	}
+	if err := operation.delete(svc, email); err != nil {
+		return err
+	}
+
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
+			"success":         true,
+			operation.jsonKey: email,
+		})
+	}
+
+	ui.FromContext(ctx).Out().Println(operation.successText(email))
+	return nil
 }

@@ -6,9 +6,6 @@ import (
 	"strings"
 
 	"google.golang.org/api/gmail/v1"
-
-	"github.com/steipete/gogcli/internal/outfmt"
-	"github.com/steipete/gogcli/internal/ui"
 )
 
 type GmailDelegatesCmd struct {
@@ -123,37 +120,15 @@ type GmailDelegatesRemoveCmd struct {
 }
 
 func (c *GmailDelegatesRemoveCmd) Run(ctx context.Context, flags *RootFlags) error {
-	delegateEmail := strings.TrimSpace(c.DelegateEmail)
-	if delegateEmail == "" {
-		return usage("empty delegateEmail")
-	}
-	if err := validateGmailSettingsEmail("delegateEmail", delegateEmail); err != nil {
-		return err
-	}
-
-	if confirmErr := dryRunAndConfirmDestructive(ctx, flags, "gmail.delegates.remove", map[string]any{
-		"delegate_email": delegateEmail,
-	}, fmt.Sprintf("remove gmail delegate %s", delegateEmail)); confirmErr != nil {
-		return confirmErr
-	}
-
-	svc, err := loadGmailSettingsService(ctx, flags)
-	if err != nil {
-		return err
-	}
-
-	err = svc.Users.Settings.Delegates.Delete("me", delegateEmail).Do()
-	if err != nil {
-		return err
-	}
-
-	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
-			"success":       true,
-			"delegateEmail": delegateEmail,
-		})
-	}
-
-	ui.FromContext(ctx).Out().Linef("Delegate %s removed successfully", delegateEmail)
-	return nil
+	return runGmailSettingsEmailDelete(ctx, flags, c.DelegateEmail, gmailSettingsEmailDelete{
+		flagName:    "delegateEmail",
+		op:          "gmail.delegates.remove",
+		payloadKey:  "delegate_email",
+		jsonKey:     "delegateEmail",
+		action:      func(email string) string { return fmt.Sprintf("remove gmail delegate %s", email) },
+		successText: func(email string) string { return fmt.Sprintf("Delegate %s removed successfully", email) },
+		delete: func(svc *gmail.Service, email string) error {
+			return svc.Users.Settings.Delegates.Delete("me", email).Do()
+		},
+	})
 }

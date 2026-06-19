@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/sheets/v4"
 
 	"github.com/steipete/gogcli/internal/outfmt"
@@ -41,6 +42,42 @@ func runSheetsMutation(
 	}
 	u.Out().Linef("%s", text)
 	return nil
+}
+
+func runSheetsSpreadsheetList[T any](
+	ctx context.Context,
+	flags *RootFlags,
+	rawSpreadsheetID string,
+	sheetName string,
+	fields string,
+	jsonKey string,
+	emptyMessage string,
+	extract func(*sheets.Spreadsheet, string) []T,
+	columns []outfmt.Column[T],
+) error {
+	spreadsheetID := normalizeGoogleID(strings.TrimSpace(rawSpreadsheetID))
+	if spreadsheetID == "" {
+		return usage("empty spreadsheetId")
+	}
+
+	_, svc, err := requireSheetsService(ctx, flags)
+	if err != nil {
+		return err
+	}
+	resp, err := svc.Spreadsheets.Get(spreadsheetID).Fields(googleapi.Field(fields)).Context(ctx).Do()
+	if err != nil {
+		return err
+	}
+
+	items := extract(resp, strings.TrimSpace(sheetName))
+	if outfmt.IsJSON(ctx) {
+		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{jsonKey: items})
+	}
+	if len(items) == 0 {
+		ui.FromContext(ctx).Err().Println(emptyMessage)
+		return nil
+	}
+	return outfmt.WriteTable(ctx, stdoutWriter(ctx), items, columns)
 }
 
 func resolveSheetIDByNameOrFirst(ctx context.Context, svc *sheets.Service, spreadsheetID, sheetName string) (int64, string, error) {

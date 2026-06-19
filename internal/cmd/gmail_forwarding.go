@@ -2,13 +2,9 @@ package cmd
 
 import (
 	"context"
-	"fmt"
 	"strings"
 
 	"google.golang.org/api/gmail/v1"
-
-	"github.com/steipete/gogcli/internal/outfmt"
-	"github.com/steipete/gogcli/internal/ui"
 )
 
 type GmailForwardingCmd struct {
@@ -121,37 +117,15 @@ type GmailForwardingDeleteCmd struct {
 }
 
 func (c *GmailForwardingDeleteCmd) Run(ctx context.Context, flags *RootFlags) error {
-	forwardingEmail := strings.TrimSpace(c.ForwardingEmail)
-	if forwardingEmail == "" {
-		return usage("empty forwardingEmail")
-	}
-	if err := validateGmailSettingsEmail("forwardingEmail", forwardingEmail); err != nil {
-		return err
-	}
-
-	if confirmErr := dryRunAndConfirmDestructive(ctx, flags, "gmail.forwarding.delete", map[string]any{
-		"forwarding_email": forwardingEmail,
-	}, fmt.Sprintf("delete gmail forwarding address %s", forwardingEmail)); confirmErr != nil {
-		return confirmErr
-	}
-
-	svc, err := loadGmailSettingsService(ctx, flags)
-	if err != nil {
-		return err
-	}
-
-	err = svc.Users.Settings.ForwardingAddresses.Delete("me", forwardingEmail).Do()
-	if err != nil {
-		return err
-	}
-
-	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{
-			"success":         true,
-			"forwardingEmail": forwardingEmail,
-		})
-	}
-
-	ui.FromContext(ctx).Out().Linef("Forwarding address %s deleted successfully", forwardingEmail)
-	return nil
+	return runGmailSettingsEmailDelete(ctx, flags, c.ForwardingEmail, gmailSettingsEmailDelete{
+		flagName:    "forwardingEmail",
+		op:          "gmail.forwarding.delete",
+		payloadKey:  "forwarding_email",
+		jsonKey:     "forwardingEmail",
+		action:      func(email string) string { return "delete gmail forwarding address " + email },
+		successText: func(email string) string { return "Forwarding address " + email + " deleted successfully" },
+		delete: func(svc *gmail.Service, email string) error {
+			return svc.Users.Settings.ForwardingAddresses.Delete("me", email).Do()
+		},
+	})
 }

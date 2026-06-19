@@ -113,38 +113,17 @@ type SheetsConditionalListCmd struct {
 }
 
 func (c *SheetsConditionalListCmd) Run(ctx context.Context, flags *RootFlags) error {
-	u := ui.FromContext(ctx)
-	account, err := requireAccount(flags)
-	if err != nil {
-		return err
-	}
-	spreadsheetID := normalizeGoogleID(strings.TrimSpace(c.SpreadsheetID))
-	if spreadsheetID == "" {
-		return usage("empty spreadsheetId")
-	}
-
-	svc, err := sheetsService(ctx, account)
-	if err != nil {
-		return err
-	}
-	resp, err := svc.Spreadsheets.Get(spreadsheetID).
-		Fields("sheets(properties(sheetId,title),conditionalFormats)").
-		Context(ctx).
-		Do()
-	if err != nil {
-		return err
-	}
-
-	items := sheetsconditional.RuleItems(resp, strings.TrimSpace(c.Sheet))
-	if outfmt.IsJSON(ctx) {
-		return outfmt.WriteJSON(ctx, stdoutWriter(ctx), map[string]any{"rules": items})
-	}
-	if len(items) == 0 {
-		u.Err().Println("No conditional format rules")
-		return nil
-	}
-
-	return outfmt.WriteTable(ctx, stdoutWriter(ctx), items, sheetsConditionalColumns())
+	return runSheetsSpreadsheetList(
+		ctx,
+		flags,
+		c.SpreadsheetID,
+		c.Sheet,
+		"sheets(properties(sheetId,title),conditionalFormats)",
+		"rules",
+		"No conditional format rules",
+		sheetsconditional.RuleItems,
+		sheetsConditionalColumns(),
+	)
 }
 
 type SheetsConditionalClearCmd struct {
