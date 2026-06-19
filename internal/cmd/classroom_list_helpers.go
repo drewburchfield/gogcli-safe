@@ -131,8 +131,8 @@ func upperClassroomStates(raw string) []string {
 	return states
 }
 
-func fetchClassroomCourseworkPage(ctx context.Context, svc *classroom.Service, courseID string, max int64, page string, states []string, orderBy string) ([]*classroom.CourseWork, string, error) {
-	call := svc.Courses.CourseWork.List(courseID).PageSize(max).PageToken(page).Context(ctx)
+func fetchClassroomCourseworkPage(ctx context.Context, svc *classroom.Service, courseID string, pageSize int64, page string, states []string, orderBy string) ([]*classroom.CourseWork, string, error) {
+	call := svc.Courses.CourseWork.List(courseID).PageSize(pageSize).PageToken(page).Context(ctx)
 	if len(states) > 0 {
 		call.CourseWorkStates(states...)
 	}
@@ -146,8 +146,8 @@ func fetchClassroomCourseworkPage(ctx context.Context, svc *classroom.Service, c
 	return resp.CourseWork, resp.NextPageToken, nil
 }
 
-func fetchClassroomMaterialPage(ctx context.Context, svc *classroom.Service, courseID string, max int64, page string, states []string, orderBy string) ([]*classroom.CourseWorkMaterial, string, error) {
-	call := svc.Courses.CourseWorkMaterials.List(courseID).PageSize(max).PageToken(page).Context(ctx)
+func fetchClassroomMaterialPage(ctx context.Context, svc *classroom.Service, courseID string, pageSize int64, page string, states []string, orderBy string) ([]*classroom.CourseWorkMaterial, string, error) {
+	call := svc.Courses.CourseWorkMaterials.List(courseID).PageSize(pageSize).PageToken(page).Context(ctx)
 	if len(states) > 0 {
 		call.CourseWorkMaterialStates(states...)
 	}
@@ -175,8 +175,8 @@ func classroomMaterialTopicID(material *classroom.CourseWorkMaterial) string {
 	return material.TopicId
 }
 
-func fetchClassroomStudentPage(ctx context.Context, svc *classroom.Service, courseID string, max int64, pageToken string) ([]*classroom.Student, string, error) {
-	call := svc.Courses.Students.List(courseID).PageSize(max).Context(ctx)
+func fetchClassroomStudentPage(ctx context.Context, svc *classroom.Service, courseID string, pageSize int64, pageToken string) ([]*classroom.Student, string, error) {
+	call := svc.Courses.Students.List(courseID).PageSize(pageSize).Context(ctx)
 	if strings.TrimSpace(pageToken) != "" {
 		call = call.PageToken(pageToken)
 	}
@@ -187,8 +187,8 @@ func fetchClassroomStudentPage(ctx context.Context, svc *classroom.Service, cour
 	return resp.Students, resp.NextPageToken, nil
 }
 
-func fetchClassroomTeacherPage(ctx context.Context, svc *classroom.Service, courseID string, max int64, pageToken string) ([]*classroom.Teacher, string, error) {
-	call := svc.Courses.Teachers.List(courseID).PageSize(max).Context(ctx)
+func fetchClassroomTeacherPage(ctx context.Context, svc *classroom.Service, courseID string, pageSize int64, pageToken string) ([]*classroom.Teacher, string, error) {
+	call := svc.Courses.Teachers.List(courseID).PageSize(pageSize).Context(ctx)
 	if strings.TrimSpace(pageToken) != "" {
 		call = call.PageToken(pageToken)
 	}
@@ -199,8 +199,8 @@ func fetchClassroomTeacherPage(ctx context.Context, svc *classroom.Service, cour
 	return resp.Teachers, resp.NextPageToken, nil
 }
 
-func fetchClassroomTopicPage(ctx context.Context, svc *classroom.Service, courseID string, max int64, pageToken string) ([]*classroom.Topic, string, error) {
-	call := svc.Courses.Topics.List(courseID).PageSize(max).Context(ctx)
+func fetchClassroomTopicPage(ctx context.Context, svc *classroom.Service, courseID string, pageSize int64, pageToken string) ([]*classroom.Topic, string, error) {
+	call := svc.Courses.Topics.List(courseID).PageSize(pageSize).Context(ctx)
 	if strings.TrimSpace(pageToken) != "" {
 		call = call.PageToken(pageToken)
 	}
