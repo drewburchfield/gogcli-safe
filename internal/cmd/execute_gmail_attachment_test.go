@@ -31,6 +31,33 @@ func executeGmailAttachmentJSON(t *testing.T, svc *gmail.Service, args ...string
 	return parsed
 }
 
+func newGmailAttachmentCacheTestService(t *testing.T, data []byte, filename string, calls *int32) *gmail.Service {
+	t.Helper()
+	encoded := base64.URLEncoding.EncodeToString(data)
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.Contains(r.URL.Path, "/gmail/v1/users/me/messages/m1/attachments/a1"):
+			atomic.AddInt32(calls, 1)
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"data": encoded})
+		case strings.Contains(r.URL.Path, "/gmail/v1/users/me/messages/m1") && !strings.Contains(r.URL.Path, "/attachments/"):
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"id": "m1",
+				"payload": map[string]any{"parts": []map[string]any{{
+					"filename": filename,
+					"body":     map[string]any{"attachmentId": "a1", "size": len(data)},
+				}}},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	})
+	svc, closeServer := newGoogleTestService(t, handler, gmail.NewService)
+	t.Cleanup(closeServer)
+	return svc
+}
+
 func TestExecute_GmailAttachment_OutPath_JSON(t *testing.T) {
 	var attachmentCalls int32
 	var messageCalls int32
@@ -251,40 +278,7 @@ func TestExecute_GmailAttachment_NotFound(t *testing.T) {
 func TestExecute_GmailAttachment_OutDirWithName_JSON(t *testing.T) {
 	var attachmentCalls int32
 	attachmentData := []byte("hello")
-	attachmentEncoded := base64.URLEncoding.EncodeToString(attachmentData)
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case strings.Contains(r.URL.Path, "/gmail/v1/users/me/messages/m1/attachments/a1"):
-			atomic.AddInt32(&attachmentCalls, 1)
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{"data": attachmentEncoded})
-			return
-		case strings.Contains(r.URL.Path, "/gmail/v1/users/me/messages/m1") && !strings.Contains(r.URL.Path, "/attachments/"):
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id": "m1",
-				"payload": map[string]any{
-					"parts": []map[string]any{
-						{
-							"filename": "ignored.bin",
-							"body": map[string]any{
-								"attachmentId": "a1",
-								"size":         len(attachmentData),
-							},
-						},
-					},
-				},
-			})
-			return
-		default:
-			http.NotFound(w, r)
-			return
-		}
-	}))
-	defer srv.Close()
-
-	svc := newGmailServiceFromServer(t, srv)
+	svc := newGmailAttachmentCacheTestService(t, attachmentData, "ignored.bin", &attachmentCalls)
 	outDir := t.TempDir()
 	wantPath := filepath.Join(outDir, "invoice.pdf")
 
@@ -321,45 +315,14 @@ func TestExecute_GmailAttachment_OutDirWithName_JSON(t *testing.T) {
 func TestExecute_GmailAttachment_StaleFileIsRedownloaded(t *testing.T) {
 	var attachmentCalls int32
 	attachmentData := []byte("fresh-bytes")
-	attachmentEncoded := base64.URLEncoding.EncodeToString(attachmentData)
-
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case strings.Contains(r.URL.Path, "/gmail/v1/users/me/messages/m1/attachments/a1"):
-			atomic.AddInt32(&attachmentCalls, 1)
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{"data": attachmentEncoded})
-			return
-		case strings.Contains(r.URL.Path, "/gmail/v1/users/me/messages/m1") && !strings.Contains(r.URL.Path, "/attachments/"):
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id": "m1",
-				"payload": map[string]any{
-					"parts": []map[string]any{
-						{
-							"filename": "a.bin",
-							"body": map[string]any{
-								"attachmentId": "a1",
-								"size":         len(attachmentData),
-							},
-						},
-					},
-				},
-			})
-			return
-		default:
-			http.NotFound(w, r)
-			return
-		}
-	}))
-	defer srv.Close()
+	svc := newGmailAttachmentCacheTestService(t, attachmentData, "a.bin", &attachmentCalls)
 
 	outPath := filepath.Join(t.TempDir(), "invoice.pdf")
 	if writeErr := os.WriteFile(outPath, []byte("stale"), 0o600); writeErr != nil {
 		t.Fatalf("WriteFile: %v", writeErr)
 	}
 
-	parsed := executeGmailAttachmentJSON(t, newGmailServiceFromServer(t, srv),
+	parsed := executeGmailAttachmentJSON(t, svc,
 		"--json",
 		"--account", "a@b.com",
 		"gmail", "attachment", "m1", "a1",

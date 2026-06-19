@@ -98,25 +98,7 @@ func TestSlidesAddSlide_NoNotes(t *testing.T) {
 	defer slidesSrv.Close()
 
 	var deleteCalled bool
-	driveSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-
-		switch {
-		case strings.Contains(r.URL.Path, "/upload/") && r.Method == http.MethodPost:
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"id":             "img_123",
-				"webContentLink": "https://drive.google.com/uc?id=img_123",
-			})
-		case strings.Contains(r.URL.Path, "/files/img_123/permissions") && r.Method == http.MethodPost:
-			_ = json.NewEncoder(w).Encode(map[string]any{"id": "perm1"})
-		case strings.Contains(r.URL.Path, "/files/img_123") && r.Method == http.MethodDelete:
-			deleteCalled = true
-			w.WriteHeader(http.StatusNoContent)
-		default:
-			http.NotFound(w, r)
-		}
-	}))
-	defer driveSrv.Close()
+	driveSvc := newSlidesImageDriveTestService(t, "img_123", &deleteCalled)
 
 	slidesSvc, err := slides.NewService(context.Background(),
 		option.WithoutAuthentication(),
@@ -125,15 +107,6 @@ func TestSlidesAddSlide_NoNotes(t *testing.T) {
 	)
 	if err != nil {
 		t.Fatalf("slides.NewService: %v", err)
-	}
-
-	driveSvc, err := drive.NewService(context.Background(),
-		option.WithoutAuthentication(),
-		option.WithHTTPClient(driveSrv.Client()),
-		option.WithEndpoint(driveSrv.URL+"/"),
-	)
-	if err != nil {
-		t.Fatalf("drive.NewService: %v", err)
 	}
 
 	imgPath := newTestImage(t, "test.png")

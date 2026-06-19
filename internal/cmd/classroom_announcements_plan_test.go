@@ -51,14 +51,14 @@ func TestBuildClassroomAnnouncementUpdatePlan(t *testing.T) {
 	}
 }
 
-func TestBuildClassroomAnnouncementPlanValidation(t *testing.T) {
+func TestBuildClassroomPlanValidation(t *testing.T) {
 	tests := []struct {
 		name string
 		run  func() error
 		want string
 	}{
 		{
-			name: "create course ID",
+			name: "announcement create course ID",
 			run: func() error {
 				_, err := buildClassroomAnnouncementCreatePlan(classroomAnnouncementInput{Text: "Hello"})
 				return err
@@ -66,7 +66,7 @@ func TestBuildClassroomAnnouncementPlanValidation(t *testing.T) {
 			want: "empty courseId",
 		},
 		{
-			name: "create text",
+			name: "announcement create text",
 			run: func() error {
 				_, err := buildClassroomAnnouncementCreatePlan(classroomAnnouncementInput{CourseID: "c1"})
 				return err
@@ -74,7 +74,7 @@ func TestBuildClassroomAnnouncementPlanValidation(t *testing.T) {
 			want: "empty text",
 		},
 		{
-			name: "update announcement ID",
+			name: "announcement update ID",
 			run: func() error {
 				_, err := buildClassroomAnnouncementUpdatePlan(classroomAnnouncementUpdateInput{
 					classroomAnnouncementInput: classroomAnnouncementInput{CourseID: "c1"},
@@ -84,11 +84,48 @@ func TestBuildClassroomAnnouncementPlanValidation(t *testing.T) {
 			want: "empty announcementId",
 		},
 		{
-			name: "no updates",
+			name: "announcement no updates",
 			run: func() error {
 				_, err := buildClassroomAnnouncementUpdatePlan(classroomAnnouncementUpdateInput{
 					classroomAnnouncementInput: classroomAnnouncementInput{CourseID: "c1"},
 					AnnouncementID:             "a1",
+				})
+				return err
+			},
+			want: "no updates specified",
+		},
+		{
+			name: "material create course ID",
+			run: func() error {
+				_, err := buildClassroomMaterialCreatePlan(classroomMaterialInput{Title: "Reading"})
+				return err
+			},
+			want: "empty courseId",
+		},
+		{
+			name: "material create title",
+			run: func() error {
+				_, err := buildClassroomMaterialCreatePlan(classroomMaterialInput{CourseID: "c1"})
+				return err
+			},
+			want: "empty title",
+		},
+		{
+			name: "material update ID",
+			run: func() error {
+				_, err := buildClassroomMaterialUpdatePlan(classroomMaterialUpdateInput{
+					classroomMaterialInput: classroomMaterialInput{CourseID: "c1"},
+				})
+				return err
+			},
+			want: "empty materialId",
+		},
+		{
+			name: "material no updates",
+			run: func() error {
+				_, err := buildClassroomMaterialUpdatePlan(classroomMaterialUpdateInput{
+					classroomMaterialInput: classroomMaterialInput{CourseID: "c1"},
+					MaterialID:             "m1",
 				})
 				return err
 			},

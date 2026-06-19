@@ -178,51 +178,13 @@ func TestPrepareCalendarID_Integration(t *testing.T) {
 }
 
 func TestExecuteCalendarAliasCRUDUsesRuntimeConfigStore(t *testing.T) {
-	home := t.TempDir()
-	t.Setenv("HOME", home)
-	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, "xdg-config"))
-
-	ambientStore := defaultConfigStoreForTest(t)
-	if err := ambientStore.SetCalendarAlias("family", "ambient@group.calendar.google.com"); err != nil {
-		t.Fatalf("set ambient alias: %v", err)
-	}
-	runtimeStore := config.NewConfigStore(config.Layout{ConfigDir: t.TempDir()})
-	runtime := &app.Runtime{Config: runtimeStore}
-
-	setResult := executeWithTestRuntime(t, []string{
-		"--json", "calendar", "alias", "set", "family", "runtime@group.calendar.google.com",
-	}, runtime)
-	if setResult.err != nil {
-		t.Fatalf("set: %v", setResult.err)
-	}
-	if calendarID, ok, err := runtimeStore.ResolveCalendarAlias("family"); err != nil || !ok || calendarID != "runtime@group.calendar.google.com" {
-		t.Fatalf("runtime alias = %q, ok=%v err=%v", calendarID, ok, err)
-	}
-	if calendarID, ok, err := ambientStore.ResolveCalendarAlias("family"); err != nil || !ok || calendarID != "ambient@group.calendar.google.com" {
-		t.Fatalf("ambient alias = %q, ok=%v err=%v", calendarID, ok, err)
-	}
-
-	listResult := executeWithTestRuntime(t, []string{"--json", "calendar", "alias", "list"}, runtime)
-	if listResult.err != nil {
-		t.Fatalf("list: %v", listResult.err)
-	}
-	var listed struct {
-		Aliases map[string]string `json:"aliases"`
-	}
-	if err := json.Unmarshal([]byte(listResult.stdout), &listed); err != nil {
-		t.Fatalf("list JSON: %v", err)
-	}
-	if listed.Aliases["family"] != "runtime@group.calendar.google.com" {
-		t.Fatalf("listed aliases = %#v", listed.Aliases)
-	}
-
-	unsetResult := executeWithTestRuntime(t, []string{"--json", "calendar", "alias", "unset", "family"}, runtime)
-	if unsetResult.err != nil {
-		t.Fatalf("unset: %v", unsetResult.err)
-	}
-	if _, ok, err := runtimeStore.ResolveCalendarAlias("family"); err != nil || ok {
-		t.Fatalf("runtime alias after unset: ok=%v err=%v", ok, err)
-	}
+	assertRuntimeAliasCRUD(
+		t, "calendar", "family", "ambient@group.calendar.google.com", "runtime@group.calendar.google.com",
+		func(store *config.ConfigStore, key, value string) error { return store.SetCalendarAlias(key, value) },
+		func(store *config.ConfigStore, key string) (string, bool, error) {
+			return store.ResolveCalendarAlias(key)
+		},
+	)
 }
 
 func TestExecuteCalendarAliasDryRunDoesNotMutateConfig(t *testing.T) {

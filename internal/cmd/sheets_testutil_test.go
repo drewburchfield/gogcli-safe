@@ -77,6 +77,17 @@ func newSheetsBatchUpdateTestService(
 	return svc
 }
 
+func sheetsEmptyAnnotationsHandler() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"sheets": []map[string]any{{"data": []map[string]any{{
+				"rowData": []map[string]any{{"values": []map[string]any{{"formattedValue": "Name"}}}},
+			}}}},
+		})
+	})
+}
+
 func newSheetsServiceFromServer(t *testing.T, srv *httptest.Server) *sheets.Service {
 	t.Helper()
 	return newGoogleTestServiceWithEndpoint(t, srv.Client(), srv.URL+"/", sheets.NewService)
