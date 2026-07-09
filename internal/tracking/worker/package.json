@@ -8,19 +8,19 @@
     "format": "oxfmt --write .",
     "format:check": "oxfmt --check .",
     "lint": "pnpm format:check && oxlint --deny-warnings .",
-    "typecheck": "tsgo -p tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "build": "wrangler deploy --dry-run",
     "test": "vitest run"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20260629.1",
-    "@typescript/native-preview": "7.0.0-dev.20260628.1",
-    "oxfmt": "^0.56.0",
-    "oxlint": "^1.71.0",
-    "oxlint-tsgolint": "^0.23.0",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.9",
-    "wrangler": "^4.105.0"
+    "@cloudflare/workers-types": "^5.20260708.1",
+    "@typescript/native": "npm:typescript@^7.0.2",
+    "oxfmt": "^0.58.0",
+    "oxlint": "^1.73.0",
+    "oxlint-tsgolint": "^0.24.0",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.107.1"
   },
   "packageManager": "pnpm@11.9.0"
 }
