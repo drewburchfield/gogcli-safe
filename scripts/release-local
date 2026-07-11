@@ -1051,7 +1051,8 @@ verify_homebrew_formula() {
 resume_existing_homebrew_result() {
   local tag=$1 observed_commit=$2 version=$3
   local darwin_amd64=$4 darwin_arm64=$5 linux_amd64=$6 linux_arm64=$7
-  local formula_file commit_file comparison_file actual_message expected_message
+  local formula_file matching_formula commit_file comparison_file ancestry_file
+  local matching_commit actual_message expected_message
   local parent_commit request_prefix request_epoch
 
   formula_file="$work_dir/resume-gogcli.rb"
@@ -1068,9 +1069,35 @@ resume_existing_homebrew_result() {
     return 1
   fi
 
+  matching_commit=$(github_api_without_tokens \
+    "repos/openclaw/homebrew-tap/commits?sha=$observed_commit&path=Formula/gogcli.rb&per_page=1" |
+    jq -r '.[0].sha // empty')
+  [[ "$matching_commit" =~ ^[[:xdigit:]]{40}$ ]] || {
+    echo "release: could not locate the matching Homebrew formula commit" >&2
+    exit 1
+  }
+  if [[ "$matching_commit" != "$observed_commit" ]]; then
+    matching_formula="$work_dir/resume-matching-gogcli.rb"
+    github_api_without_tokens -H 'Accept: application/vnd.github.raw+json' \
+      "repos/openclaw/homebrew-tap/contents/Formula/gogcli.rb?ref=$matching_commit" \
+      > "$matching_formula"
+    cmp -s "$formula_file" "$matching_formula" || {
+      echo "release: current Homebrew formula changed after its matching updater commit" >&2
+      exit 1
+    }
+    ancestry_file="$work_dir/resume-tap-ancestry.json"
+    github_api_without_tokens \
+      "repos/openclaw/homebrew-tap/compare/$matching_commit...$observed_commit" \
+      > "$ancestry_file"
+    [[ "$(jq -r '.status // empty' "$ancestry_file")" == ahead ]] || {
+      echo "release: matching Homebrew formula commit is not in protected default history" >&2
+      exit 1
+    }
+  fi
+
   commit_file="$work_dir/resume-tap-commit.json"
   if ! github_api_without_tokens \
-    "repos/openclaw/homebrew-tap/git/commits/$observed_commit" > "$commit_file"; then
+    "repos/openclaw/homebrew-tap/git/commits/$matching_commit" > "$commit_file"; then
     echo "release: could not inspect the matching Homebrew commit" >&2
     exit 1
   fi
@@ -1078,7 +1105,7 @@ resume_existing_homebrew_result() {
   parent_commit=$(jq -r 'select(.parents | length == 1) | .parents[0].sha // empty' "$commit_file")
   request_id=$(sed -n 's/^Request-ID: //p' <<<"$actual_message")
   request_prefix="gogcli-${tag}-${accepted_tag_object:0:12}-"
-  [[ "$(jq -r '.sha // empty' "$commit_file")" == "$observed_commit" &&
+  [[ "$(jq -r '.sha // empty' "$commit_file")" == "$matching_commit" &&
     "$parent_commit" =~ ^[[:xdigit:]]{40}$ &&
     "$request_id" == "$request_prefix"* ]] || {
     echo "release: matching Homebrew formula lacks exact updater provenance" >&2
@@ -1099,12 +1126,12 @@ resume_existing_homebrew_result() {
 
   comparison_file="$work_dir/resume-tap-comparison.json"
   if ! github_api_without_tokens \
-    "repos/openclaw/homebrew-tap/compare/$parent_commit...$observed_commit" \
+    "repos/openclaw/homebrew-tap/compare/$parent_commit...$matching_commit" \
     > "$comparison_file"; then
     echo "release: could not inspect the matching Homebrew commit delta" >&2
     exit 1
   fi
-  jq -e --arg parent "$parent_commit" --arg result "$observed_commit" '
+  jq -e --arg parent "$parent_commit" --arg result "$matching_commit" '
     .status == "ahead" and
     .base_commit.sha == $parent and
     .merge_base_commit.sha == $parent and
@@ -1120,7 +1147,7 @@ resume_existing_homebrew_result() {
   require_tap_hash_contract_at \
     "$trusted_tap_branch" "$parent_commit" "$observed_commit"
   tap_source_commit=$parent_commit
-  completed_tap_commit=$observed_commit
+  completed_tap_commit=$matching_commit
 }
 
 require_homebrew_install_state_shape() {
@@ -1633,7 +1660,7 @@ update_homebrew() {
   local tap_checkout tap_checkout_head tap_checkout_remote tap_fetch_head
   local install_state_present gog_installed native_binary_sha256
   local brew_bin brew_dir brew_home comparison comparison_status completed_tap_commit tap_run_json
-  local observed_tap_commit tap_source_commit resume_tap
+  local observed_tap_commit tap_source_commit accepted_tap_head resume_tap
   local tap_commit_json expected_commit_message
   local -a homebrew_env
   validate_tag "$tag"
@@ -1809,7 +1836,15 @@ update_homebrew() {
     echo "release: Homebrew tap default branch changed after workflow completion" >&2
     exit 1
   }
-  completed_tap_commit=$current_tap_commit
+  if [[ "$resume_tap" == true ]]; then
+    [[ "$current_tap_commit" == "$observed_tap_commit" ]] || {
+      echo "release: protected Homebrew tap default branch moved after resume" >&2
+      exit 1
+    }
+  else
+    completed_tap_commit=$current_tap_commit
+  fi
+  accepted_tap_head=$current_tap_commit
   comparison=$(github_api_without_tokens \
     "repos/openclaw/homebrew-tap/compare/$tap_source_commit...$completed_tap_commit")
   comparison_status=$(jq -r '.status // empty' <<<"$comparison")
@@ -1865,18 +1900,18 @@ update_homebrew() {
     exit 1
   }
   tap_checkout_head=$(trusted_git -C "$tap_checkout" rev-parse HEAD)
-  if [[ "$tap_checkout_head" != "$completed_tap_commit" ]]; then
+  if [[ "$tap_checkout_head" != "$accepted_tap_head" ]]; then
     [[ "$tap_checkout_head" == "$tap_source_commit" ]] || {
       echo "release: Homebrew tap checkout is not at the trusted transition base" >&2
       exit 1
     }
     trusted_git -C "$tap_checkout" fetch --no-tags origin "$trusted_tap_branch"
     tap_fetch_head=$(trusted_git -C "$tap_checkout" rev-parse FETCH_HEAD)
-    [[ "$tap_fetch_head" == "$completed_tap_commit" ]] || {
+    [[ "$tap_fetch_head" == "$accepted_tap_head" ]] || {
       echo "release: fetched Homebrew tap head differs from the verified commit" >&2
       exit 1
     }
-    trusted_git -C "$tap_checkout" merge --ff-only "$completed_tap_commit"
+    trusted_git -C "$tap_checkout" merge --ff-only "$accepted_tap_head"
   fi
   cmp -s "$formula_file" "$tap_checkout/Formula/gogcli.rb" || {
     echo "release: managed Homebrew tap formula differs from the verified formula" >&2
@@ -1936,7 +1971,7 @@ update_homebrew() {
   revalidate_homebrew_source \
     "$tag" "$accepted_tag_object" "$accepted_tag_commit" \
     "$accepted_release_snapshot" "$accepted_snapshot_hash"
-  require_tap_default_at "$trusted_tap_branch" "$completed_tap_commit"
+  require_tap_default_at "$trusted_tap_branch" "$accepted_tap_head"
   rm -f "$install_state_file"
   rmdir "$(dirname "$install_state_file")" 2>/dev/null || true
   echo "release: Homebrew formula and clean install passed after native published verifier run $verifier_run"

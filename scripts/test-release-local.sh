@@ -1250,6 +1250,7 @@ grep -Fq 'shasum -a 256 "$handoff_dir/gogcli_${version}_darwin_amd64.tar.gz"' <<
 }
 grep -Fq 'resume_existing_homebrew_result' <<<"$homebrew_function"
 grep -Fq 'if [[ "$resume_tap" == false ]]' <<<"$homebrew_function"
+grep -Fq 'accepted_tap_head=$current_tap_commit' <<<"$homebrew_function"
 grep -Fq 'ensure_homebrew_install_state' <<<"$homebrew_function"
 grep -Fq 'resuming the exact recorded Homebrew install proof' <<<"$homebrew_function"
 grep -Fq -- '--ref "$trusted_tap_branch"' <<<"$homebrew_function"
@@ -1258,8 +1259,8 @@ grep -Fq "'.path'" <<<"$homebrew_function"
 grep -Fq 'contents/Formula/gogcli.rb?ref=$completed_tap_commit' <<<"$homebrew_function"
 grep -Fq 'tap_checkout=$(env -i "${homebrew_env[@]}" "$brew_bin" --repository openclaw/tap)' <<<"$homebrew_function"
 grep -Fq '[[ "$tap_checkout_head" == "$tap_source_commit" ]]' <<<"$homebrew_function"
-grep -Fq '[[ "$tap_fetch_head" == "$completed_tap_commit" ]]' <<<"$homebrew_function"
-grep -Fq 'trusted_git -C "$tap_checkout" merge --ff-only "$completed_tap_commit"' <<<"$homebrew_function"
+grep -Fq '[[ "$tap_fetch_head" == "$accepted_tap_head" ]]' <<<"$homebrew_function"
+grep -Fq 'trusted_git -C "$tap_checkout" merge --ff-only "$accepted_tap_head"' <<<"$homebrew_function"
 grep -Fq 'cmp -s "$formula_file" "$tap_checkout/Formula/gogcli.rb"' <<<"$homebrew_function"
 grep -Fq 'env -i "${homebrew_env[@]}" "$brew_bin" info --json=v2 openclaw/tap/gogcli' <<<"$homebrew_function"
 grep -Fq 'env -i "${homebrew_env[@]}" "$brew_bin" install --formula openclaw/tap/gogcli' <<<"$homebrew_function"
@@ -1271,7 +1272,7 @@ install_line=$(grep -nF '"$brew_bin" install --formula openclaw/tap/gogcli' <<<"
 installed_cmp_line=$(grep -nF 'cmp -s "$handoff_candidate" "$installed_binary"' <<<"$homebrew_function" | cut -d: -f1)
 installed_static_line=$(grep -nF '"$installed_binary" "$native_arch" "$version" static' <<<"$homebrew_function" | cut -d: -f1)
 brew_test_line=$(grep -nF '"$brew_bin" test gogcli' <<<"$homebrew_function" | cut -d: -f1)
-final_tap_line=$(grep -nF 'require_tap_default_at "$trusted_tap_branch" "$completed_tap_commit"' <<<"$homebrew_function" | cut -d: -f1)
+final_tap_line=$(grep -nF 'require_tap_default_at "$trusted_tap_branch" "$accepted_tap_head"' <<<"$homebrew_function" | cut -d: -f1)
 homebrew_success_line=$(grep -nF 'echo "release: Homebrew formula and clean install passed' <<<"$homebrew_function" | cut -d: -f1)
 [[ "$install_line" -lt "$installed_cmp_line" &&
   "$installed_cmp_line" -lt "$installed_static_line" &&
@@ -1330,7 +1331,7 @@ grep -Fq "'.parents[0].sha // empty'" <<<"$homebrew_function"
 brew_test_line=$(grep -nF '"$brew_bin" test gogcli' <<<"$homebrew_function" | cut -d: -f1)
 post_test_helper_line=$(grep -nF 'assert_trusted_release_helpers_clean' <<<"$homebrew_function" | tail -1 | cut -d: -f1)
 post_test_release_line=$(grep -nF 'revalidate_homebrew_source' <<<"$homebrew_function" | tail -1 | cut -d: -f1)
-final_tap_line=$(grep -nF 'require_tap_default_at "$trusted_tap_branch" "$completed_tap_commit"' <<<"$homebrew_function" | cut -d: -f1)
+final_tap_line=$(grep -nF 'require_tap_default_at "$trusted_tap_branch" "$accepted_tap_head"' <<<"$homebrew_function" | cut -d: -f1)
 homebrew_success_line=$(grep -nF 'echo "release: Homebrew formula and clean install passed' <<<"$homebrew_function" | cut -d: -f1)
 [[ "$brew_test_line" -lt "$post_test_helper_line" &&
   "$post_test_helper_line" -lt "$post_test_release_line" &&
@@ -1700,6 +1701,9 @@ accepted_tag_object=1111111111111111111111111111111111111111
 accepted_tag_commit=2222222222222222222222222222222222222222
 fixture_result=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 fixture_parent=ffffffffffffffffffffffffffffffffffffffff
+fixture_head=$fixture_result
+[[ "${HOMEBREW_RESUME_MODE:-exact}" != advanced ]] || \
+  fixture_head=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 request_id=
 tap_source_commit=
 completed_tap_commit=
@@ -1710,6 +1714,9 @@ github_api_without_tokens() {
   case "$endpoint" in
     *contents/Formula/gogcli.rb*)
       cat "$HOMEBREW_RESUME_FORMULA"
+      ;;
+    *commits?sha=*)
+      jq -n --arg result "$fixture_result" '[{sha: $result}]'
       ;;
     *git/commits/*)
       [[ "${HOMEBREW_RESUME_MODE:-exact}" != bad-provenance ]] || \
@@ -1749,14 +1756,14 @@ github_api_without_tokens() {
   esac
 }
 require_tap_hash_contract_at() {
-  [[ "$1" == main && "$2" == "$fixture_parent" && "$3" == "$fixture_result" ]]
+  [[ "$1" == main && "$2" == "$fixture_parent" && "$3" == "$fixture_head" ]]
 }
 
 # shellcheck source=/dev/null
 source "$HOMEBREW_FORMULA_FUNCTION"
 # shellcheck source=/dev/null
 source "$HOMEBREW_RESUME_FUNCTION"
-resume_existing_homebrew_result v0.3.4 "$fixture_result" 0.3.4 \
+resume_existing_homebrew_result v0.3.4 "$fixture_head" 0.3.4 \
   "$HOMEBREW_DARWIN_AMD64" "$HOMEBREW_DARWIN_ARM64" \
   "$HOMEBREW_LINUX_AMD64" "$HOMEBREW_LINUX_ARM64"
 printf '%s\n' "$request_id" "$tap_source_commit" "$completed_tap_commit"
@@ -1777,6 +1784,17 @@ ffffffffffffffffffffffffffffffffffffffff
 eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 EOF
 cmp "$tmp/homebrew-resume-expected.log" "$tmp/homebrew-resume-output.log"
+HOMEBREW_RESUME_MODE=advanced \
+  HOMEBREW_RESUME_WORK="$tmp/homebrew-resume-work-advanced" \
+  HOMEBREW_RESUME_FORMULA="$tmp/gogcli.rb" \
+  HOMEBREW_FORMULA_FUNCTION="$tmp/verify-homebrew-formula.sh" \
+  HOMEBREW_RESUME_FUNCTION="$tmp/resume-existing-homebrew-result.sh" \
+  HOMEBREW_DARWIN_AMD64="$darwin_amd64_hash" \
+  HOMEBREW_DARWIN_ARM64="$darwin_arm64_hash" \
+  HOMEBREW_LINUX_AMD64="$linux_amd64_hash" \
+  HOMEBREW_LINUX_ARM64="$linux_arm64_hash" \
+  "$tmp/homebrew-resume-probe.sh" > "$tmp/homebrew-resume-advanced-output.log"
+cmp "$tmp/homebrew-resume-expected.log" "$tmp/homebrew-resume-advanced-output.log"
 for resume_mode in bad-provenance bad-delta; do
   if HOMEBREW_RESUME_MODE=$resume_mode \
     HOMEBREW_RESUME_WORK="$tmp/homebrew-resume-work-$resume_mode" \
