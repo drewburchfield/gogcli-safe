@@ -7,6 +7,8 @@
 # allowed since it only creates a new account credential. One deliberate
 # exception to the no-permanent-delete rule: gmail.drafts.delete is allowed
 # (drafts are agent-authored scratch work, not user data worth protecting).
+# Generic API escape hatches (per-service `raw`, `api call`) are blocked:
+# they bypass the curated per-command policy.
 #
 # This is a tighter variant of upstream's agent-safe, curated for coding-
 # agent use. Diffs from upstream: enables docs/sheets/slides edits
@@ -18,19 +20,17 @@
 # Used by build-safe.sh and the drewburchfield/tap homebrew formula.
 
 name: agent-safe
-description: Curated agent profile for gogcli-safe. Allows reading, drafting, editing (with revision-history recovery), and recoverable side effects. Blocks external sends, permanent deletes, sharing, admin, and destructive auth writes (allows additive auth add).
+description: Curated agent profile for gogcli-safe. Allows reading, drafting, editing (with revision-history recovery), and recoverable side effects. Blocks external sends, permanent deletes, sharing, admin, raw API escape hatches, and destructive auth writes (allows additive auth add).
 
 version: true
 schema: true
-exit-codes: true
-agent:
-  exit-codes: true
+update: true            # read-only release status check
 
 gmail:
   # Reads
   search: true
   get: true
-  messages: true
+  messages: true        # modify is label-only, recoverable
   attachment: true
   url: true
   history: true
@@ -54,8 +54,12 @@ gmail:
   unread: true
   trash: true           # Gmail trash has 30-day recovery
   send: false           # external
+  reply: false          # external send
+  reply-all: false      # external send
+  forward: false        # external send
   autoreply: false      # external-impact setting
   track: false
+  raw: false            # generic Gmail API escape hatch
   drafts:
     list: true
     get: true
@@ -65,16 +69,9 @@ gmail:
                         # trash), but a draft is agent-authored scratch work, so
                         # allow cleanup. Sends stay blocked.
     send: false
-  # Admin / external-impact settings
+  # Admin / external-impact settings (autoforward, delegates, filters,
+  # forwarding, sendas, vacation, watch all live under settings)
   settings: false
-  watch: false
-  autoforward: false
-  delegates: false
-  filters: false
-  forwarding: false
-  sendas: false
-  vacation: false
-  forward: false
 
 calendar:
   # Reads
@@ -86,12 +83,14 @@ calendar:
   freebusy: true
   colors: true
   conflicts: true
+  changed: true
   search: true
   time: true
   users: true
   team: true
   # Writes (recoverable / no external notification)
   subscribe: true       # unsubscribe is recoverable
+  unsubscribe: true     # resubscribe restores
   create: true
   update: true
   move: true
@@ -99,10 +98,12 @@ calendar:
   focus-time: true      # personal block
   working-location: true # cosmetic, recoverable
   create-calendar: true # recoverable
-  # External / notification-emitting
+  # External / notification-emitting / destructive
   delete: false         # cancels event, emails attendees
+  delete-calendar: false # destroys a whole calendar
   respond: false        # RSVPs notify host
   out-of-office: false  # triggers auto-replies
+  raw: false            # generic Calendar API escape hatch
 
 drive:
   ls: true
@@ -117,15 +118,41 @@ drive:
   permissions: true     # read-only
   url: true
   drives: true
+  du: true
+  tree: true
+  inventory: true
+  activity: true        # read-only activity query
+  audit: true           # read-only sharing/user audits
+  revisions: true       # read-only (list/get)
+  changes:
+    list: true
+    poll: true
+    start-token: true
+    serve: false        # long-running webhook infrastructure
+    watch: false
+    stop: false
+  labels:
+    list: true
+    get: true
+    file:
+      list: true
+      apply: true       # label metadata, removable
+      remove: true
+  shortcut: true        # create is additive
+  sync: true            # push only, documented no-remote-deletes
   delete: false         # could be permanent
   share: false          # external visibility
   unshare: false        # hard to verify reversal
+  bulk: false           # mass permission changes
+  raw: false            # generic Drive API escape hatch (incl. permanent delete)
   comments:
     list: true
     get: true
     create: true
     update: true
     reply: true
+    resolve: true       # reopen restores
+    reopen: true
     delete: false       # not recoverable via revision
 
 sites:
@@ -142,13 +169,14 @@ contacts:
   create: true          # recoverable
   update: true          # recoverable
   delete: false         # Google contacts delete is not reliably recoverable
+  dedupe: false         # merges are effectively deletes
+  raw: false            # generic People API escape hatch
   directory:
     list: true
     search: true
   other:
     list: true
     search: true
-    delete: false
 
 tasks: false            # using clings instead
 
@@ -156,9 +184,15 @@ docs:
   # Reads
   export: true
   info: true
-  cat: true
   list-tabs: true
+  cat: true
   structure: true
+  find-range: true
+  headings: true
+  images: true
+  paragraphs: true
+  tables: true
+  suggestions: true     # list only
   # Edits (Google Docs revision history covers all)
   create: true
   copy: true
@@ -169,14 +203,49 @@ docs:
   sed: true
   find-replace: true
   clear: true
+  format: true
+  page-layout: true
+  section-columns: true
+  add-tab: true
+  rename-tab: true
+  delete-tab: true      # revision history restores tabs
+  tabs: true
+  header: true
+  footer: true
+  insert-date-chip: true
+  insert-file-chip: true
+  insert-footnote: true
+  insert-horizontal-rule: true
+  insert-image: true
+  insert-page-break: true
+  insert-person: true
+  insert-section-break: true
+  insert-table: true
+  replace-image: true
+  table-row: true
+  table-column: true
+  table-column-width: true
+  table-merge: true
+  table-unmerge: true
+  cell-style: true
+  cell-update: true
+  named-range: true     # revision history restores
   delete: false         # whole-doc delete; use drive trash if needed
+  raw: false            # generic Docs API escape hatch
   comments:
     list: true
     get: true
+    locate: true
+    poll: true
     add: true
     reply: true
     resolve: true       # unresolve restores
+    reopen: true
     delete: false       # comment delete not in revision history
+
+# Persisted Google Docs request batches; submit applies Docs edits, which
+# revision history covers (same policy as docs edits above).
+batch: true
 
 sheets:
   # Reads
@@ -188,6 +257,7 @@ sheets:
   export: true
   # Edits (Sheets version history covers all)
   update: true
+  batch-update: true
   append: true
   insert: true
   update-note: true
@@ -200,11 +270,20 @@ sheets:
   resize-rows: true
   find-replace: true
   clear: true
+  copy-paste: true
+  delete-dimension: true
   create: true
   copy: true
   add-tab: true
   rename-tab: true
+  reorder-tab: true
   delete-tab: true      # version history restores tabs
+  banding: true
+  conditional-format: true
+  filter: true
+  table: true           # version history restores
+  validation: true
+  raw: false            # generic Sheets API escape hatch
   named-ranges:
     list: true
     get: true
@@ -225,17 +304,28 @@ slides:
   list-slides: true
   read-slide: true
   thumbnail: true
+  locate: true
   # Edits (revision history covers all)
   create: true
   create-from-markdown: true
   create-from-template: true
   copy: true
   add-slide: true
+  new-slide: true
+  duplicate-slide: true
   delete-slide: true
+  move-slide: true
   update-notes: true
   replace-slide: true
   insert-text: true
   replace-text: true
+  style-text: true
+  insert-image: true
+  bullets: true
+  link: true
+  element: true
+  table: true
+  raw: false            # generic Slides API escape hatch
 
 chat:
   spaces:
@@ -246,7 +336,10 @@ chat:
     list: true
     send: false         # external
     react: false        # reactions notify others
-    reactions: false
+    reactions:
+      list: true
+      create: false     # notifies others
+      delete: false
   threads:
     list: true
   dm:
@@ -264,7 +357,12 @@ forms:
   add-question: false
   delete-question: false
   move-question: true   # reordering only
+  questions:
+    add: false
+    delete: false
+    move: true          # reordering only
   watch: false
+  raw: false            # generic Forms API escape hatch
 
 appscript:
   get: true
@@ -272,11 +370,71 @@ appscript:
   run: false            # arbitrary code execution
   create: false         # creates triggerable code
 
+maps: true              # read-only queries (geocode, directions, places)
+
+meet:
+  get: true
+  history: true
+  participants: true
+  create: true          # creates a space, no invites sent
+  update: true          # space config, revertible
+  end: false            # ends a live meeting for all participants
+
+zoom: false             # auth flows only; auth goes through full gog
+
+analytics:
+  accounts: true        # read-only
+  report: true          # read-only
+
+searchconsole:
+  query: true
+  searchanalytics: true
+  sites:
+    list: true
+    get: true
+  sitemaps:
+    list: true
+    get: true
+    submit: false       # affects indexing externally
+    delete: false
+
+youtube:
+  search: true
+  activities: true
+  channels: true
+  videos: true
+  comments: true        # list only
+  subscriptions: true   # personal, recoverable
+  playlists:
+    list: true
+    items: true
+    create: true        # additive
+    add: true           # additive
+    remove: true        # re-adding restores
+    delete: false       # permanent
+
+photos:
+  list: true
+  get: true
+  search: true
+  download: true
+  picker: true          # ephemeral picker sessions, no photo mutation
+
+api:
+  list: true            # discovery metadata
+  describe: true        # discovery metadata
+  call: false           # arbitrary API escape hatch
+
+# MCP tool calls re-exec this same binary, so the baked profile still
+# gates every command; enabling the server does not widen the policy.
+mcp: true
+
 people:
   me: true
   get: true
   search: true
   relations: true
+  raw: false            # generic People API escape hatch
 
 groups:
   list: true
@@ -301,6 +459,8 @@ auth:
   keyring: false
   add: true            # additive: creates a new account credential, non-destructive
   remove: false
+  import: false
+  setup: false
   tokens:
     list: true
     delete: false
