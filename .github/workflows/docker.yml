@@ -26,6 +26,8 @@ permissions:
 
 jobs:
   image:
+    # Skip on forks; image publishing is upstream-only.
+    if: github.repository == 'steipete/gogcli'
     runs-on: ubuntu-latest
     steps:
       - name: Validate manual tag
